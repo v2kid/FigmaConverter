@@ -753,4 +753,23 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
 
         Debug.Log("=== End Position Debug ===");
     }
+    [ContextMenu("Generate Prefabs")]
+    public void GeneratePrefab()
+    {
+        //loop though all game objects, find prefix with tag_prefab_
+        foreach (var kvp in createdNodes)
+        {
+            if (kvp.Value != null && kvp.Value.name.StartsWith(Constant.PREFAB_PREFIX))
+            {
+                string prefabName = kvp.Value.name.Replace(Constant.PREFAB_PREFIX, "");
+                string localPath = $"Assets/Prefabs/{prefabName}.prefab";
+                localPath = AssetDatabase.GenerateUniqueAssetPath(localPath);
+
+                // Create the Prefab
+                PrefabUtility.SaveAsPrefabAssetAndConnect(kvp.Value, localPath, InteractionMode.UserAction);
+                if (enableDebugLogs)
+                    Debug.Log($"✓ Created prefab: {localPath}");
+            }
+        }
+    }
 }

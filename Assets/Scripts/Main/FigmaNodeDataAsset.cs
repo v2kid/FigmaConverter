@@ -164,6 +164,20 @@ public class FigmaNodeDataAsset : ScriptableObject
         return ids;
     }
 
+    public Dictionary<string, string> GetAllNodeIdsAndNames()
+    {
+        var dict = new Dictionary<string, string>();
+        foreach (var nodeData in nodeDataList)
+        {
+            if (!string.IsNullOrEmpty(nodeData.nodeId))
+            {
+                string name = string.IsNullOrEmpty(nodeData.nodeName) ? "Unnamed" : nodeData.nodeName;
+                dict[nodeData.nodeId] = name;
+            }
+        }
+        return dict;
+    }
+
     public bool HasNodeData(string nodeId)
     {
         return GetNodeData(nodeId) != null;

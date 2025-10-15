@@ -24,6 +24,9 @@ public interface IFigmaNodeConverter
     /// List all available nodes in the data asset
     /// </summary>
     void ListAvailableNodes();
+
+
+    void GeneratePrefab();
 }
 
 /// <summary>

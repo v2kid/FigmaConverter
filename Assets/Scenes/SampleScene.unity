@@ -507,7 +507,6 @@ MonoBehaviour:
   imageFormat: png
   imageScale: 1
   useImagePrefix: 1
-  imagePrefix: tag_image
 --- !u!4 &1433733373
 Transform:
   m_ObjectHideFlags: 0
