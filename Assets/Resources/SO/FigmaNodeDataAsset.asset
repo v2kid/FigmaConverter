@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99bad81b8aa6c4ca4920a4eecd90ff9d, type: 3}
+  m_Name: FigmaNodeDataAsset
+  m_EditorClassIdentifier: 
+  nodeDataList:
+  - nodeId: 119:441
+    nodeName: 
+    nodeType: 
+    jsonData: {fileID: 4900000, guid: bd963d7bc8ac6474bbc22db454d1a733, type: 3}
+    description: Imported from figma_node_119-441.json
+  - nodeId: 122:2
+    nodeName: 
+    nodeType: 
+    jsonData: {fileID: 4900000, guid: 529729f18d7c34e6e936f1f4b7623500, type: 3}
+    description: Imported from figma_node_122-2.json
+  - nodeId: 1427:7568
+    nodeName: 
+    nodeType: 
+    jsonData: {fileID: 4900000, guid: bf6c6c7ec063848dcb310a1465916981, type: 3}
+    description: Imported from figma_node_1427-7568.json
+  autoParseOnValidate: 1
+  showDebugInfo: 0
+  totalNodes: 2
+  validNodes: 2
