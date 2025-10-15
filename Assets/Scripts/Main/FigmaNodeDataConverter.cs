@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 using UnityEditor;
 #endif
 
-public class FigmaNodeDataConverter : MonoBehaviour
+public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
 {
     [Header("Node Data Source")]
     public FigmaNodeDataAsset nodeDataAsset;
@@ -29,14 +29,6 @@ public class FigmaNodeDataConverter : MonoBehaviour
     private Dictionary<string, GameObject> createdNodes = new Dictionary<string, GameObject>();
     private Dictionary<GameObject, Vector2> figmaPositions = new Dictionary<GameObject, Vector2>();
 
-    void Start()
-    {
-        // Setup canvas if needed
-        if (createNewCanvas && targetCanvas == null)
-        {
-            CreateCanvas();
-        }
-    }
 
     public void CreateCanvas()
     {
@@ -59,7 +51,7 @@ public class FigmaNodeDataConverter : MonoBehaviour
     }
 
     [ContextMenu("Convert Node to UI")]
-    public void ConvertNodeToUI()
+    public virtual void ConvertNodeToUI()
     {
         if (nodeDataAsset == null)
         {

@@ -14,8 +14,12 @@ public class FigmaDownloader : MonoBehaviour
     public string nodeId = "YOUR_NODE_ID";
 
     [Header("Download Settings")]
-    public string imageFormat = "png"; // png, jpg
-    public float imageScale = 1f; // 0.5 to 4.0
+    public string imageFormat = "png";
+    public float imageScale = 1f;
+
+    [Header("Image Detection Settings")]
+    public bool useImagePrefix = true;
+    public string imagePrefix = "image_";
 
     private string ResourcesPath => Path.Combine(Application.dataPath, "Resources", "FigmaData");
     private string SpritesPath => Path.Combine(Application.dataPath, "Sprites");
@@ -32,6 +36,49 @@ public class FigmaDownloader : MonoBehaviour
     public void DownloadNodeAndImagesContext()
     {
         StartCoroutine(DownloadNodeAndImages());
+    }
+
+    [ContextMenu("Preview Image Nodes")]
+    public void PreviewImageNodes()
+    {
+        StartCoroutine(PreviewImageNodesCoroutine());
+    }
+
+    private IEnumerator PreviewImageNodesCoroutine()
+    {
+        string nodeFilePath = GetNodeFilePath();
+
+        if (!File.Exists(nodeFilePath))
+        {
+            Debug.LogError($"Node file not found: {nodeFilePath}. Please download the node first.");
+            yield break;
+        }
+
+        string jsonContent = File.ReadAllText(nodeFilePath);
+        JObject root = JObject.Parse(jsonContent);
+        JToken nodeData = root["nodes"]?[nodeId]?["document"];
+
+        if (nodeData == null)
+        {
+            Debug.LogError($"Could not find node data for nodeId: {nodeId}");
+            yield break;
+        }
+
+        List<string> imageNodeIds = new List<string>();
+        CollectImageNodeIds(nodeData, imageNodeIds);
+
+        Debug.Log("=== Image Nodes Preview ===");
+        Debug.Log($"Image prefix detection: {(useImagePrefix ? "ENABLED" : "DISABLED")} (prefix: '{imagePrefix}')");
+        Debug.Log($"Found {imageNodeIds.Count} image node(s) that would be downloaded:");
+
+        foreach (string id in imageNodeIds)
+        {
+            string name = FindNodeNameById(nodeData, id);
+            Debug.Log($"  • {name} (ID: {id})");
+        }
+
+        Debug.Log("=== End Preview ===");
+        yield return null;
     }
 
     private IEnumerator DownloadNodeAndImages()
@@ -93,7 +140,7 @@ public class FigmaDownloader : MonoBehaviour
 
         // Download images
         string refsParam = string.Join(",", imageNodeIds);
-        string imagesUrl = $"https://api.figma.com/v1/images/{fileId}?ids={refsParam}&format={imageFormat}&scale={imageScale}";
+        string imagesUrl = $"https://api.figma.com/v1/images/{fileId}?ids={refsParam}&format={imageFormat}&scale={imageScale}&use_absolute_bounds=true";
 
         Debug.Log($"Making image URL request: {imagesUrl}");
         Debug.Log($"Image refs parameter: {refsParam}");
@@ -119,7 +166,9 @@ public class FigmaDownloader : MonoBehaviour
             string imageUrl = kvp.Value?.ToString();
             if (!string.IsNullOrEmpty(imageUrl) && imageUrl != "null")
             {
-                yield return DownloadSingleImage(refId, imageUrl);
+                // Find the node name for this ID to create a better filename
+                string nodeName = FindNodeNameById(nodeData, refId) ?? refId;
+                yield return DownloadSingleImage(refId, imageUrl, nodeName);
             }
         }
 
@@ -134,38 +183,20 @@ public class FigmaDownloader : MonoBehaviour
         {
             var obj = (JObject)token;
             string nodeId = obj["id"]?.ToString();
+            string nodeName = obj["name"]?.ToString();
             bool hasImage = false;
 
-            // Check fills array for images
-            if (obj.TryGetValue("fills", out JToken fillsToken) && fillsToken is JArray fills)
+            // Check if node name has the specified prefix
+            if (useImagePrefix && !string.IsNullOrEmpty(nodeName) && !string.IsNullOrEmpty(imagePrefix) && nodeName.StartsWith(imagePrefix))
             {
-                foreach (var fillToken in fills)
-                {
-                    if (fillToken["type"]?.ToString() == "IMAGE")
-                    {
-                        hasImage = true;
-                        break;
-                    }
-                }
+                hasImage = true;
+                Debug.Log($"Found node with '{imagePrefix}' prefix: {nodeName} (ID: {nodeId})");
             }
 
-            // Check background array for images
-            if (!hasImage && obj.TryGetValue("background", out JToken bgToken) && bgToken is JArray backgrounds)
-            {
-                foreach (var bg in backgrounds)
-                {
-                    if (bg["type"]?.ToString() == "IMAGE")
-                    {
-                        hasImage = true;
-                        break;
-                    }
-                }
-            }
-
-            // If this node has images, add its ID
             if (hasImage && !string.IsNullOrEmpty(nodeId) && !imageNodeIds.Contains(nodeId))
             {
-                Debug.Log($"Found image node: {nodeId}");
+
+                Debug.Log($"Added image node to download list: {nodeName} ({nodeId})");
                 imageNodeIds.Add(nodeId);
             }
 
@@ -183,9 +214,45 @@ public class FigmaDownloader : MonoBehaviour
     }
 
 
-    private IEnumerator DownloadSingleImage(string refId, string imageUrl)
+    private string FindNodeNameById(JToken token, string targetId)
     {
-        string filePath = Path.Combine(SpritesPath, $"{refId}.{imageFormat}");
+        if (token == null) return null;
+
+        if (token.Type == JTokenType.Object)
+        {
+            var obj = (JObject)token;
+            string nodeId = obj["id"]?.ToString();
+
+            if (nodeId == targetId)
+            {
+                return obj["name"]?.ToString();
+            }
+
+            // Recursively check children
+            if (obj.TryGetValue("children", out JToken childrenToken))
+            {
+                string result = FindNodeNameById(childrenToken, targetId);
+                if (result != null) return result;
+            }
+        }
+        else if (token.Type == JTokenType.Array)
+        {
+            foreach (var child in (JArray)token)
+            {
+                string result = FindNodeNameById(child, targetId);
+                if (result != null) return result;
+            }
+        }
+
+        return null;
+    }
+
+    private IEnumerator DownloadSingleImage(string refId, string imageUrl, string nodeName = null)
+    {
+        // Create filename from node name if available, otherwise use refId
+        string fileName = !string.IsNullOrEmpty(nodeName) ? SanitizeFileName(nodeName) : refId;
+        string filePath = Path.Combine(SpritesPath, $"{fileName}.{imageFormat}");
+
         UnityWebRequest www = UnityWebRequestTexture.GetTexture(imageUrl);
         yield return www.SendWebRequest();
 
@@ -193,11 +260,30 @@ public class FigmaDownloader : MonoBehaviour
         {
             byte[] data = www.downloadHandler.data;
             File.WriteAllBytes(filePath, data);
-            Debug.Log($"✓ Downloaded image: {filePath}");
+            Debug.Log($"✓ Downloaded image: {filePath} (Node: {nodeName ?? refId})");
         }
         else
         {
             Debug.LogError($"✗ Failed to download image {refId}: {www.error}");
         }
     }
+
+
+    private string SanitizeFileName(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName)) return "unknown";
+
+        // Remove invalid filename characters
+        char[] invalidChars = Path.GetInvalidFileNameChars();
+        foreach (char c in invalidChars)
+        {
+            fileName = fileName.Replace(c, '_');
+        }
+
+        // Replace spaces with underscores
+        fileName = fileName.Replace(' ', '_');
+
+        return fileName;
+    }
 }
+
