@@ -4,7 +4,7 @@ using TMPro;
 using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
-
+using System.IO;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -25,6 +25,7 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
 
     [Header("Debug")]
     public bool enableDebugLogs = true;
+
 
     private Dictionary<string, GameObject> createdNodes = new Dictionary<string, GameObject>();
     private Dictionary<GameObject, Vector2> figmaPositions = new Dictionary<GameObject, Vector2>();
@@ -194,24 +195,33 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
     private GameObject CreateContainerNode(JObject nodeData, Transform parent)
     {
         string nodeName = nodeData["name"]?.ToString() ?? "Container";
+        nodeName = nodeName.SanitizeFileName();
 
         GameObject container = new GameObject(nodeName);
-        container.transform.SetParent(parent, false); // Use worldPositionStays = false
+        container.transform.SetParent(parent, false);
 
         // Add RectTransform
         RectTransform rectTransform = container.AddComponent<RectTransform>();
 
-        // Add Image component for background if fills exist
+        // Add Image component for background if fills exist OR if it has image prefix
         JArray fills = nodeData["fills"] as JArray;
-        if (fills != null && fills.Count > 0)
+        bool hasFills = fills != null && fills.Count > 0;
+        bool hasImagePrefix = nodeName.StartsWith(Constant.IMAGE_PREFIX);
+
+        if (hasFills || hasImagePrefix)
         {
             Image backgroundImage = container.AddComponent<Image>();
-            ApplyFills(fills, backgroundImage);
-        }
 
-        // Set container to clip its contents (optional - uncomment if needed)
-        // Mask mask = container.AddComponent<Mask>();
-        // mask.showMaskGraphic = false;
+            // Check for image prefix first
+            if (hasImagePrefix)
+            {
+                ApplyImageSprite(nodeName, backgroundImage);
+            }
+            else if (hasFills)
+            {
+                ApplyFills(fills, backgroundImage);
+            }
+        }
 
         return container;
     }
@@ -219,36 +229,50 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
     private GameObject CreateTextNode(JObject nodeData, Transform parent)
     {
         string nodeName = nodeData["name"]?.ToString() ?? "Text";
-
+        nodeName = nodeName.SanitizeFileName();
         GameObject textGO = new GameObject(nodeName);
-        textGO.transform.SetParent(parent, false); // Use worldPositionStays = false
+        textGO.transform.SetParent(parent, false);
 
         // Add RectTransform
         RectTransform rectTransform = textGO.AddComponent<RectTransform>();
 
-        // Add TextMeshProUGUI component
-        TextMeshProUGUI tmpText = textGO.AddComponent<TextMeshProUGUI>();
-
-        // Set text content
-        string characters = nodeData["characters"]?.ToString() ?? "Sample Text";
-        tmpText.text = characters;
-        tmpText.textWrappingMode = TextWrappingModes.NoWrap;
-        // Apply font
-        if (defaultFont != null)
-            tmpText.font = defaultFont;
-
-        // Apply text styling
-        ApplyTextStyling(nodeData, tmpText);
-
-        // Apply fills for text color
-        JArray fills = nodeData["fills"] as JArray;
-        if (fills != null && fills.Count > 0)
+        // Check if this text node should be treated as an image
+        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
-            ApplyTextFills(fills, tmpText);
+            // Create as image instead of text
+            Image image = textGO.AddComponent<Image>();
+            ApplyImageSprite(nodeName, image);
+
+            if (enableDebugLogs)
+                Debug.Log($"Text node '{nodeName}' converted to image due to prefix");
         }
         else
         {
-            tmpText.color = defaultTextColor;
+            // Add TextMeshProUGUI component
+            TextMeshProUGUI tmpText = textGO.AddComponent<TextMeshProUGUI>();
+
+            // Set text content
+            string characters = nodeData["characters"]?.ToString() ?? "Sample Text";
+            tmpText.text = characters;
+            tmpText.textWrappingMode = TextWrappingModes.NoWrap;
+
+            // Apply font
+            if (defaultFont != null)
+                tmpText.font = defaultFont;
+
+            // Apply text styling
+            ApplyTextStyling(nodeData, tmpText);
+
+            // Apply fills for text color
+            JArray fills = nodeData["fills"] as JArray;
+            if (fills != null && fills.Count > 0)
+            {
+                ApplyTextFills(fills, tmpText);
+            }
+            else
+            {
+                tmpText.color = defaultTextColor;
+            }
         }
 
         return textGO;
@@ -257,9 +281,10 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
     private GameObject CreateImageNode(JObject nodeData, Transform parent)
     {
         string nodeName = nodeData["name"]?.ToString() ?? "Image";
+        nodeName = nodeName.SanitizeFileName();
 
         GameObject imageGO = new GameObject(nodeName);
-        imageGO.transform.SetParent(parent, false); // Use worldPositionStays = false
+        imageGO.transform.SetParent(parent, false);
 
         // Add RectTransform
         RectTransform rectTransform = imageGO.AddComponent<RectTransform>();
@@ -267,11 +292,19 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
         // Add Image component
         Image image = imageGO.AddComponent<Image>();
 
-        // Apply fills
-        JArray fills = nodeData["fills"] as JArray;
-        if (fills != null && fills.Count > 0)
+        // Check for image prefix first, then apply fills
+        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
-            ApplyFills(fills, image);
+            ApplyImageSprite(nodeName, image);
+        }
+        else
+        {
+            // Apply fills if no sprite was loaded
+            JArray fills = nodeData["fills"] as JArray;
+            if (fills != null && fills.Count > 0)
+            {
+                ApplyFills(fills, image);
+            }
         }
 
         // Apply corner radius for rounded rectangles
@@ -284,42 +317,82 @@ public class FigmaNodeDataConverter : MonoBehaviour, IFigmaNodeConverter
         return imageGO;
     }
 
+
+
     private GameObject CreateVectorNode(JObject nodeData, Transform parent)
     {
         string nodeName = nodeData["name"]?.ToString() ?? "Vector";
+        nodeName = nodeName.SanitizeFileName();
 
         GameObject vectorGO = new GameObject(nodeName);
-        vectorGO.transform.SetParent(parent, false); // Use worldPositionStays = false
+        vectorGO.transform.SetParent(parent, false);
 
         // Add RectTransform
         RectTransform rectTransform = vectorGO.AddComponent<RectTransform>();
 
-        // Add Image component (vectors will be treated as images for now)
+        // Add Image component (vectors will be treated as images)
         Image image = vectorGO.AddComponent<Image>();
 
-        // Apply fills
-        JArray fills = nodeData["fills"] as JArray;
-        if (fills != null && fills.Count > 0)
+        // Check for image prefix first, then apply fills
+        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
-            ApplyFills(fills, image);
+            ApplyImageSprite(nodeName, image);
+        }
+        else
+        {
+            // Apply fills if no sprite was loaded
+            JArray fills = nodeData["fills"] as JArray;
+            if (fills != null && fills.Count > 0)
+            {
+                ApplyFills(fills, image);
+            }
         }
 
         return vectorGO;
     }
 
+    private void ApplyImageSprite(string nodeName, Image image)
+    {
+        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
+        {
+            Sprite sprite = Resources.Load<Sprite>($"Sprites/{targetNodeId.Replace(":", "-")}/{nodeName}");
+            if (sprite != null)
+            {
+                image.sprite = sprite;
+                image.preserveAspect = true;
+
+                if (enableDebugLogs)
+                    Debug.Log($"✓ Loaded sprite for {nodeName}");
+            }
+            else if (enableDebugLogs)
+            {
+                Debug.LogWarning($"⚠️ Could not find sprite: Sprites/{nodeName}");
+            }
+        }
+    }
+
     private GameObject CreateGenericNode(JObject nodeData, Transform parent)
     {
         string nodeName = nodeData["name"]?.ToString() ?? "GenericNode";
-
+        nodeName = nodeName.SanitizeFileName();
         GameObject genericGO = new GameObject(nodeName);
-        genericGO.transform.SetParent(parent, false); // Use worldPositionStays = false
+        genericGO.transform.SetParent(parent, false);
 
         // Add RectTransform
         RectTransform rectTransform = genericGO.AddComponent<RectTransform>();
 
+        // Check if this generic node should have an image component due to prefix
+        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
+        {
+            Image image = genericGO.AddComponent<Image>();
+            ApplyImageSprite(nodeName, image);
+
+            if (enableDebugLogs)
+                Debug.Log($"Generic node '{nodeName}' converted to image due to prefix");
+        }
+
         return genericGO;
     }
-
     private void ApplyTransform(JObject nodeData, GameObject gameObject)
     {
         RectTransform rectTransform = gameObject.GetComponent<RectTransform>();

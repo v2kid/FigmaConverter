@@ -1,8 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
-using System.Collections.Generic;
-
+using System.IO;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -270,6 +268,23 @@ public static class FigmaUIHelper
         }
     }
 
+
+    public static string SanitizeFileName(this string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName)) return "unknown";
+
+        // Remove invalid filename characters
+        char[] invalidChars = Path.GetInvalidFileNameChars();
+        foreach (char c in invalidChars)
+        {
+            fileName = fileName.Replace(c, '_');
+        }
+
+        // Replace spaces with underscores
+        fileName = fileName.Replace(' ', '_');
+
+        return fileName;
+    }
     /// <summary>
     /// Creates a prefab from the given GameObject
     /// </summary>

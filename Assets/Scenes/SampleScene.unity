@@ -228,14 +228,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   nodeDataAsset: {fileID: 11400000, guid: aeefe3ca20c004ec58b8e36a0a4dd0e3, type: 2}
-  targetNodeId: 119:441
+  targetNodeId: 1427:7568
   targetCanvas: {fileID: 3801355437850266514}
   createNewCanvas: 0
   canvasName: FigmaUI_Canvas
   defaultFont: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   defaultTextColor: {r: 0.8773585, g: 0.21933962, b: 0.21933962, a: 1}
   scaleFactor: 1
-  enableDebugLogs: 1
+  enableDebugLogs: 0
 --- !u!4 &223533883
 Transform:
   m_ObjectHideFlags: 0
@@ -502,13 +502,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   figmaToken: figd_iTTZcK3iAUZkefIkiyh2Tk7SXTvgoSOz09Otj2F_
-  fileId: QGfdee3v9PpRUKcTqx2VGi
-  nodeId: 119:441
+  fileId: q3uY5p0UnEO5EKHdFnGlWy
+  nodeId: 1427:7568
   imageFormat: png
   imageScale: 1
   useImagePrefix: 1
-  imagePrefix: image_
-  downloadImageFills: 0
+  imagePrefix: tag_image
 --- !u!4 &1433733373
 Transform:
   m_ObjectHideFlags: 0

@@ -19,10 +19,9 @@ public class FigmaDownloader : MonoBehaviour
 
     [Header("Image Detection Settings")]
     public bool useImagePrefix = true;
-    public string imagePrefix = "image_";
 
     private string ResourcesPath => Path.Combine(Application.dataPath, "Resources", "FigmaData");
-    private string SpritesPath => Path.Combine(Application.dataPath, "Sprites");
+    // private string SpritesPath => Path.Combine(Application.dataPath, "Sprites");
 
     private void EnsureDirectory(string path)
     {
@@ -68,7 +67,7 @@ public class FigmaDownloader : MonoBehaviour
         CollectImageNodeIds(nodeData, imageNodeIds);
 
         Debug.Log("=== Image Nodes Preview ===");
-        Debug.Log($"Image prefix detection: {(useImagePrefix ? "ENABLED" : "DISABLED")} (prefix: '{imagePrefix}')");
+        Debug.Log($"Image prefix detection: {(useImagePrefix ? "ENABLED" : "DISABLED")} (prefix: '{Constant.IMAGE_PREFIX}')");
         Debug.Log($"Found {imageNodeIds.Count} image node(s) that would be downloaded:");
 
         foreach (string id in imageNodeIds)
@@ -84,7 +83,7 @@ public class FigmaDownloader : MonoBehaviour
     private IEnumerator DownloadNodeAndImages()
     {
         EnsureDirectory(ResourcesPath);
-        EnsureDirectory(SpritesPath);
+        // EnsureDirectory(SpritesPath);
 
         string nodeFilePath = GetNodeFilePath();
 
@@ -109,12 +108,8 @@ public class FigmaDownloader : MonoBehaviour
 
         // Parse node JSON to collect image refs
         string jsonContent = File.ReadAllText(nodeFilePath);
-        Debug.Log($"JSON file size: {jsonContent.Length} characters");
-
         JObject root = JObject.Parse(jsonContent);
-        Debug.Log($"Parsed JSON root keys: {string.Join(", ", root.Properties().Select(p => p.Name))}");
 
-        // Navigate to the actual node data
         JToken nodeData = root["nodes"]?[nodeId]?["document"];
         if (nodeData == null)
         {
@@ -128,22 +123,13 @@ public class FigmaDownloader : MonoBehaviour
 
         if (imageNodeIds.Count == 0)
         {
-            Debug.Log("No images found in node.");
             yield break;
-        }
-
-        Debug.Log($"Found {imageNodeIds.Count} image node(s) to download:");
-        foreach (string nodeId in imageNodeIds)
-        {
-            Debug.Log($"  - Image node ID: {nodeId}");
         }
 
         // Download images
         string refsParam = string.Join(",", imageNodeIds);
         string imagesUrl = $"https://api.figma.com/v1/images/{fileId}?ids={refsParam}&format={imageFormat}&scale={imageScale}&use_absolute_bounds=true";
 
-        Debug.Log($"Making image URL request: {imagesUrl}");
-        Debug.Log($"Image refs parameter: {refsParam}");
 
         UnityWebRequest imgReq = UnityWebRequest.Get(imagesUrl);
         imgReq.SetRequestHeader("X-FIGMA-TOKEN", figmaToken);
@@ -152,8 +138,6 @@ public class FigmaDownloader : MonoBehaviour
 
         if (imgReq.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError($"✗ Failed to get image URLs: {imgReq.error}");
-            Debug.LogError($"Response: {imgReq.downloadHandler.text}");
             yield break;
         }
 
@@ -187,16 +171,16 @@ public class FigmaDownloader : MonoBehaviour
             bool hasImage = false;
 
             // Check if node name has the specified prefix
-            if (useImagePrefix && !string.IsNullOrEmpty(nodeName) && !string.IsNullOrEmpty(imagePrefix) && nodeName.StartsWith(imagePrefix))
+            if (useImagePrefix && !string.IsNullOrEmpty(nodeName) && !string.IsNullOrEmpty(Constant.IMAGE_PREFIX) && nodeName.StartsWith(Constant.IMAGE_PREFIX))
             {
                 hasImage = true;
-                Debug.Log($"Found node with '{imagePrefix}' prefix: {nodeName} (ID: {nodeId})");
+                // Debug.Log($"Found node with '{imagePrefix}' prefix: {nodeName} (ID: {nodeId})");
             }
 
             if (hasImage && !string.IsNullOrEmpty(nodeId) && !imageNodeIds.Contains(nodeId))
             {
 
-                Debug.Log($"Added image node to download list: {nodeName} ({nodeId})");
+                // Debug.Log($"Added image node to download list: {nodeName} ({nodeId})");
                 imageNodeIds.Add(nodeId);
             }
 
@@ -250,8 +234,23 @@ public class FigmaDownloader : MonoBehaviour
     private IEnumerator DownloadSingleImage(string refId, string imageUrl, string nodeName = null)
     {
         // Create filename from node name if available, otherwise use refId
-        string fileName = !string.IsNullOrEmpty(nodeName) ? SanitizeFileName(nodeName) : refId;
-        string filePath = Path.Combine(SpritesPath, $"{fileName}.{imageFormat}");
+        string fileName = !string.IsNullOrEmpty(nodeName) ? nodeName : refId;
+        fileName = fileName.SanitizeFileName();
+
+        // Use Constant.SAVE_IMAGE_FOLDER for the folder name
+        string resourcesSpritesPath = Path.Combine(
+            Application.dataPath,
+            "Resources",
+            Constant.SAVE_IMAGE_FOLDER,
+            nodeId.Replace(":", "-")
+        );
+
+        // Ensure the directory exists
+        EnsureDirectory(resourcesSpritesPath);
+
+        string filePath = Path.Combine(resourcesSpritesPath, $"{fileName}.{imageFormat}");
+
+        Debug.Log($"Downloading image to: {filePath}");
 
         UnityWebRequest www = UnityWebRequestTexture.GetTexture(imageUrl);
         yield return www.SendWebRequest();
@@ -260,7 +259,12 @@ public class FigmaDownloader : MonoBehaviour
         {
             byte[] data = www.downloadHandler.data;
             File.WriteAllBytes(filePath, data);
-            Debug.Log($"✓ Downloaded image: {filePath} (Node: {nodeName ?? refId})");
+            // Debug.Log($"✓ Downloaded image: {filePath} (Node: {nodeName ?? refId})");
+
+#if UNITY_EDITOR
+            // Refresh the asset database so Unity recognizes the new sprite
+            UnityEditor.AssetDatabase.Refresh();
+#endif
         }
         else
         {
@@ -269,21 +273,22 @@ public class FigmaDownloader : MonoBehaviour
     }
 
 
-    private string SanitizeFileName(string fileName)
-    {
-        if (string.IsNullOrEmpty(fileName)) return "unknown";
 
-        // Remove invalid filename characters
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        foreach (char c in invalidChars)
-        {
-            fileName = fileName.Replace(c, '_');
-        }
+    // private string SanitizeFileName(string fileName)
+    // {
+    //     if (string.IsNullOrEmpty(fileName)) return "unknown";
 
-        // Replace spaces with underscores
-        fileName = fileName.Replace(' ', '_');
+    //     // Remove invalid filename characters
+    //     char[] invalidChars = Path.GetInvalidFileNameChars();
+    //     foreach (char c in invalidChars)
+    //     {
+    //         fileName = fileName.Replace(c, '_');
+    //     }
 
-        return fileName;
-    }
+    //     // Replace spaces with underscores
+    //     fileName = fileName.Replace(' ', '_');
+
+    //     return fileName;
+    // }
 }
 
