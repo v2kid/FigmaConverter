@@ -18,12 +18,12 @@ MonoBehaviour:
     nodeType: 
     jsonData: {fileID: 4900000, guid: 8fa57a3c497d14afa92df59ec54ea0c3, type: 3}
     description: Imported from figma_node_1427-7568.json
-  - nodeId: 1323:6819
+  - nodeId: 1154:6673
     nodeName: 
     nodeType: 
-    jsonData: {fileID: 4900000, guid: 531cfbf0260154a3c9385e7b744c9fc6, type: 3}
-    description: Imported from figma_node_1323-6819.json
+    jsonData: {fileID: 4900000, guid: bb1885b4a7be0443c86ff4fc4808fda1, type: 3}
+    description: Imported from figma_node_1154-6673.json
   autoParseOnValidate: 1
   showDebugInfo: 0
-  totalNodes: 1
-  validNodes: 1
+  totalNodes: 0
+  validNodes: 0

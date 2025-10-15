@@ -32,6 +32,13 @@ Convert Figma designs directly into Unity UI with TextMeshPro support and automa
 | Vector | Image | Icons and custom shapes |
 | Group | Container | Grouping element |
 
+
+---
+
+![From figma](assets/images/screen_shot_1.png)
+
+![From editor](assets/images/screen_shot_2.png)
+
 ## Context Menu Actions
 
 **Right-click on FigmaDownloader component:**
@@ -67,6 +74,3 @@ Assets/
 ❌ **"File not found"** → Check if file is shared/accessible  
 ❌ **Text not showing** → Assign TextMeshPro font asset  
 
----
-
-**Need more control?** See `FigmaToUI_Documentation.md` for detailed configuration options.

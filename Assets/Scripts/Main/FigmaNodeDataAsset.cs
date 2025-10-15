@@ -20,6 +20,7 @@ public class FigmaNodeData
 
     public bool isValid => jsonData != null && !string.IsNullOrEmpty(nodeId);
 }
+// ...existing code...
 
 [CreateAssetMenu(fileName = "FigmaNodeDataAsset", menuName = "Figma/Node Data Asset")]
 public class FigmaNodeDataAsset : ScriptableObject
@@ -35,88 +36,23 @@ public class FigmaNodeDataAsset : ScriptableObject
     [SerializeField] private int totalNodes = 0;
     [SerializeField] private int validNodes = 0;
 
-    private Dictionary<string, JObject> parsedNodeCache = new Dictionary<string, JObject>();
+    // Remove parsedNodeCache and all related logic
 
     private void OnValidate()
     {
-        if (autoParseOnValidate)
-        {
-            ValidateAndUpdateNodes();
-        }
-
         UpdateStats();
     }
 
-    public void ValidateAndUpdateNodes()
-    {
-        parsedNodeCache.Clear();
-
-        foreach (var nodeData in nodeDataList)
-        {
-            if (nodeData.jsonData != null)
-            {
-                try
-                {
-                    JObject root = JObject.Parse(nodeData.jsonData.text);
-
-                    // Try to extract node info from the JSON
-                    if (string.IsNullOrEmpty(nodeData.nodeId))
-                    {
-                        // Try to find node ID from JSON structure
-                        if (root["nodes"] != null)
-                        {
-                            var firstNode = root["nodes"].First;
-                            if (firstNode is JProperty prop)
-                            {
-                                nodeData.nodeId = prop.Name;
-
-                                var docNode = prop.Value["document"];
-                                if (docNode != null)
-                                {
-                                    nodeData.nodeName = docNode["name"]?.ToString() ?? "Unknown";
-                                    nodeData.nodeType = docNode["type"]?.ToString() ?? "Unknown";
-                                }
-                            }
-                        }
-                        else if (root["document"] != null)
-                        {
-                            var doc = root["document"];
-                            nodeData.nodeId = doc["id"]?.ToString() ?? "Unknown";
-                            nodeData.nodeName = doc["name"]?.ToString() ?? "Unknown";
-                            nodeData.nodeType = doc["type"]?.ToString() ?? "Unknown";
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(nodeData.nodeId))
-                    {
-                        parsedNodeCache[nodeData.nodeId] = root;
-                    }
-                }
-                catch (System.Exception ex)
-                {
-                    if (showDebugInfo)
-                        Debug.LogError($"Failed to parse JSON for {nodeData.nodeId}: {ex.Message}");
-                }
-            }
-        }
-    }
+    // Remove ValidateAndUpdateNodes and all calls to it
 
     public JObject GetParsedNodeData(string nodeId)
     {
-        if (parsedNodeCache.ContainsKey(nodeId))
-        {
-            return parsedNodeCache[nodeId];
-        }
-
-        // Try to find and parse on demand
         var nodeData = GetNodeData(nodeId);
         if (nodeData != null && nodeData.jsonData != null)
         {
             try
             {
-                JObject root = JObject.Parse(nodeData.jsonData.text);
-                parsedNodeCache[nodeId] = root;
-                return root;
+                return JObject.Parse(nodeData.jsonData.text);
             }
             catch (System.Exception ex)
             {
@@ -124,7 +60,6 @@ public class FigmaNodeDataAsset : ScriptableObject
                     Debug.LogError($"Failed to parse JSON for {nodeId}: {ex.Message}");
             }
         }
-
         return null;
     }
 
@@ -209,7 +144,6 @@ public class FigmaNodeDataAsset : ScriptableObject
     public void ClearAllNodeData()
     {
         nodeDataList.Clear();
-        parsedNodeCache.Clear();
 
 #if UNITY_EDITOR
         EditorUtility.SetDirty(this);
@@ -219,7 +153,6 @@ public class FigmaNodeDataAsset : ScriptableObject
     [ContextMenu("Refresh All Node Data")]
     public void RefreshAllNodeData()
     {
-        ValidateAndUpdateNodes();
         UpdateStats();
 
 #if UNITY_EDITOR
@@ -276,7 +209,7 @@ public class FigmaNodeDataAsset : ScriptableObject
 
         if (imported > 0)
         {
-            ValidateAndUpdateNodes();
+            UpdateStats();
             EditorUtility.SetDirty(this);
             Debug.Log($"Imported {imported} node data files from Resources folder.");
         }
@@ -293,7 +226,6 @@ public class FigmaNodeDataAsset : ScriptableObject
         Debug.Log($"=== FigmaNodeDataAsset Debug Info ===");
         Debug.Log($"Total Nodes: {totalNodes}");
         Debug.Log($"Valid Nodes: {validNodes}");
-        Debug.Log($"Cached Nodes: {parsedNodeCache.Count}");
 
         foreach (var nodeData in nodeDataList)
         {
@@ -305,75 +237,3 @@ public class FigmaNodeDataAsset : ScriptableObject
     }
 }
 
-#if UNITY_EDITOR
-[CustomEditor(typeof(FigmaNodeDataAsset))]
-public class FigmaNodeDataAssetEditor : Editor
-{
-    private SerializedProperty nodeDataListProp;
-    private SerializedProperty autoParseOnValidateProp;
-    private SerializedProperty showDebugInfoProp;
-
-    private void OnEnable()
-    {
-        nodeDataListProp = serializedObject.FindProperty("nodeDataList");
-        autoParseOnValidateProp = serializedObject.FindProperty("autoParseOnValidate");
-        showDebugInfoProp = serializedObject.FindProperty("showDebugInfo");
-    }
-
-    public override void OnInspectorGUI()
-    {
-        var asset = (FigmaNodeDataAsset)target;
-
-        serializedObject.Update();
-
-        EditorGUILayout.LabelField("Figma Node Data Asset", EditorStyles.largeLabel);
-        EditorGUILayout.Space();
-
-        // Settings
-        EditorGUILayout.PropertyField(autoParseOnValidateProp);
-        EditorGUILayout.PropertyField(showDebugInfoProp);
-        EditorGUILayout.Space();
-
-        // Stats
-        EditorGUILayout.LabelField("Statistics", EditorStyles.boldLabel);
-        EditorGUI.BeginDisabledGroup(true);
-        EditorGUILayout.IntField("Total Nodes", asset.nodeDataList.Count);
-        EditorGUILayout.IntField("Valid Nodes", asset.nodeDataList.FindAll(n => n.isValid).Count);
-        EditorGUI.EndDisabledGroup();
-        EditorGUILayout.Space();
-
-        // Action buttons
-        EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
-        EditorGUILayout.BeginHorizontal();
-
-        if (GUILayout.Button("Add Node Data"))
-        {
-            asset.AddNewNodeData();
-        }
-
-        if (GUILayout.Button("Refresh All"))
-        {
-            asset.RefreshAllNodeData();
-        }
-
-        if (GUILayout.Button("Import from Resources"))
-        {
-            asset.ImportFromResourcesFolder();
-        }
-
-        EditorGUILayout.EndHorizontal();
-
-        if (GUILayout.Button("Debug Info"))
-        {
-            asset.DebugNodeInfo();
-        }
-
-        EditorGUILayout.Space();
-
-        // Node list
-        EditorGUILayout.PropertyField(nodeDataListProp, new GUIContent("Node Data List"), true);
-
-        serializedObject.ApplyModifiedProperties();
-    }
-}
-#endif
