@@ -35,9 +35,9 @@ Convert Figma designs directly into Unity UI with TextMeshPro support and automa
 
 ---
 
-![From figma](assets/images/screen_shot_1.png)
+![From figma](Assets/images/screen_shot_1.png)
 
-![From editor](assets/images/screen_shot_2.png)
+![From editor](Assets/images/screen_shot_2.png)
 
 ## Context Menu Actions
 
