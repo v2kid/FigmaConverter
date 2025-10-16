@@ -35,30 +35,26 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
     public float scaleFactor = 1f;
 
     [Header("Image Download Options")]
-    public bool downloadOnlyTargetNode = false;
-    public bool downloadChildrenImages = true;
-    public bool downloadImages = true;
+    // public bool downloadOnlyTargetNode = false;
+    // public bool downloadChildrenImages = true;
+    // public bool downloadImages = true;
     public string imageFormat = "png";
     public float imageScale = 1f;
 
     [Header("Sprite Generation")]
     public bool useSpriteGeneration = true;
-    public SpriteGenerationMode generationMode = SpriteGenerationMode.Direct;
-    public bool saveGeneratedSprites = true;
-    public bool saveFigmaDataToResources = true;
 
     [Header("Debug")]
     public bool enableDebugLogs = false;
 
     private Dictionary<string, GameObject> createdNodes = new Dictionary<string, GameObject>();
     private Dictionary<GameObject, Vector2> figmaPositions = new Dictionary<GameObject, Vector2>();
-    private Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>(); // Cache generated sprites
+    private Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
     private JObject _currentNodeData;
 
     public enum SpriteGenerationMode
     {
-        Direct,      // Fast, no SVG (default)
-        SVG,         // Slower, can save SVG for debugging
+        Direct,
     }
 
     [ContextMenu("Extract IDs from URL")]
@@ -98,7 +94,6 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
     [ContextMenu("Download and Convert Everything")]
     public void DownloadAndConvertEverything()
     {
-        // Auto-extract IDs if not already set
         if (
             (string.IsNullOrEmpty(fileId) || fileId == "YOUR_FILE_ID")
             && !string.IsNullOrEmpty(figmaUrl)
@@ -110,46 +105,6 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         StartCoroutine(DownloadAndConvertCoroutine());
     }
 
-    [ContextMenu("Download and Convert (Target Node Only)")]
-    public void DownloadAndConvertTargetOnly()
-    {
-        // Auto-extract IDs if not already set
-        if (
-            (string.IsNullOrEmpty(fileId) || fileId == "YOUR_FILE_ID")
-            && !string.IsNullOrEmpty(figmaUrl)
-        )
-        {
-            ExtractIdsFromUrl();
-        }
-
-        downloadOnlyTargetNode = true;
-        downloadChildrenImages = false;
-        StartCoroutine(DownloadAndConvertCoroutine());
-    }
-
-    [ContextMenu("Convert Without Downloading Images")]
-    public void ConvertWithoutImages()
-    {
-        // Auto-extract IDs if not already set
-        if (
-            (string.IsNullOrEmpty(fileId) || fileId == "YOUR_FILE_ID")
-            && !string.IsNullOrEmpty(figmaUrl)
-        )
-        {
-            ExtractIdsFromUrl();
-        }
-
-        downloadImages = false;
-        StartCoroutine(DownloadAndConvertCoroutine());
-    }
-
-    /// <summary>
-    /// Extracts file ID and node ID from a Figma URL
-    /// Supports formats like:
-    /// - https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1001-15&m=dev
-    /// - https://www.figma.com/file/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1001-15
-    /// - https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled
-    /// </summary>
     private (string fileId, string nodeId)? ExtractFileAndNodeIds(string url)
     {
         if (string.IsNullOrEmpty(url))
@@ -157,100 +112,53 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
 
         try
         {
-            // Remove any whitespace
             url = url.Trim();
 
-            // Check if it's a valid Figma URL
             if (!url.Contains("figma.com"))
             {
-                Debug.LogError("Invalid Figma URL. URL must contain 'figma.com'");
+                Debug.LogError("Invalid Figma URL");
                 return null;
             }
 
-            string extractedFileId = "";
-            string extractedNodeId = "";
-
-            // Extract file ID from URL path
-            // Pattern: /design/FILE_ID/ or /file/FILE_ID/
             var fileIdMatch = System.Text.RegularExpressions.Regex.Match(
                 url,
                 @"/(?:design|file)/([A-Za-z0-9]+)/"
             );
-            if (fileIdMatch.Success)
+            if (!fileIdMatch.Success)
             {
-                extractedFileId = fileIdMatch.Groups[1].Value;
-            }
-            else
-            {
-                Debug.LogError(
-                    "Could not extract file ID from URL. Expected format: /design/FILE_ID/ or /file/FILE_ID/"
-                );
+                Debug.LogError("Could not extract file ID from URL");
                 return null;
             }
 
-            // Extract node ID from query parameters
-            // Pattern: node-id=1001-15 or node-id=1001%3A15 (URL encoded colon)
             var nodeIdMatch = System.Text.RegularExpressions.Regex.Match(
                 url,
                 @"[?&]node-id=([^&]+)"
             );
-            if (nodeIdMatch.Success)
+            if (!nodeIdMatch.Success)
             {
-                extractedNodeId = nodeIdMatch.Groups[1].Value;
-                // Convert URL encoded colon (%3A) back to colon
-                extractedNodeId = extractedNodeId.Replace("%3A", ":");
-                // Convert dash to colon if it's in the format 1001-15
-                if (extractedNodeId.Contains("-") && !extractedNodeId.Contains(":"))
-                {
-                    extractedNodeId = extractedNodeId.Replace("-", ":");
-                }
-            }
-            else
-            {
-                Debug.LogWarning(
-                    "No node ID found in URL. You may need to specify a specific node to convert."
-                );
-                // For some cases, you might want to use the root node or a default
-                // For now, we'll return null to indicate no node ID was found
+                Debug.LogWarning("No node ID found in URL");
                 return null;
             }
 
-            if (string.IsNullOrEmpty(extractedFileId))
-            {
-                Debug.LogError("Failed to extract file ID from URL");
-                return null;
-            }
+            string extractedFileId = fileIdMatch.Groups[1].Value;
+            string extractedNodeId = nodeIdMatch
+                .Groups[1]
+                .Value.Replace("%3A", ":")
+                .Replace("-", ":");
 
             return (extractedFileId, extractedNodeId);
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Error parsing Figma URL: {ex.Message}");
+            Debug.LogError($"Error parsing URL: {ex.Message}");
             return null;
         }
     }
 
     private IEnumerator DownloadAndConvertCoroutine()
     {
-        if (enableDebugLogs)
-        {
-            string mode =
-                downloadOnlyTargetNode ? "target node only"
-                : downloadChildrenImages ? "with children"
-                : "without images";
-            Debug.Log($"Starting download and convert in '{mode}' mode");
-        }
-
-        // Download node data
         yield return DownloadNodeData();
-
-        // Download images if enabled
-        if (downloadImages)
-        {
-            yield return DownloadImages();
-        }
-
-        // Convert to UI
+        yield return DownloadImages();
         ConvertNodeToUI();
     }
 
@@ -277,24 +185,17 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
                 if (_currentNodeData != null)
                 {
                     if (enableDebugLogs)
-                        Debug.Log(
-                            $"✓ Downloaded node data: {_currentNodeData["name"]} (Type: {_currentNodeData["type"]})"
-                        );
-
-                    // Save node data to Resources/FigmaData for review
-                    if (saveFigmaDataToResources)
-                    {
-                        SaveNodeDataToResources(jsonContent);
-                    }
+                        Debug.Log($"✓ Downloaded: {_currentNodeData["name"]}");
+                    SaveNodeDataToResources(jsonContent);
                 }
                 else
                 {
-                    Debug.LogError($"Could not find document node for ID: {nodeId}");
+                    Debug.LogError($"Node not found: {nodeId}");
                 }
             }
             else
             {
-                Debug.LogError($"✗ Failed to download node: {www.error}");
+                Debug.LogError($"Download failed: {www.error}");
             }
         }
     }
@@ -309,20 +210,21 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
 
         List<string> imageNodeIds = new List<string>();
 
-        if (downloadOnlyTargetNode)
-        {
-            // Only check the target node itself
-            CheckNodeForImages(_currentNodeData, imageNodeIds);
-            if (enableDebugLogs)
-                Debug.Log($"Checking target node only for images. Found: {imageNodeIds.Count}");
-        }
-        else if (downloadChildrenImages)
-        {
-            // Check all children recursively
-            CollectImageNodeIds(_currentNodeData, imageNodeIds);
-            if (enableDebugLogs)
-                Debug.Log($"Checking all children for images. Found: {imageNodeIds.Count}");
-        }
+        // if (downloadOnlyTargetNode)
+        // {
+        //     // Only check the target node itself
+        //     CheckNodeForImages(_currentNodeData, imageNodeIds);
+        //     if (enableDebugLogs)
+        //         Debug.Log($"Checking target node only for images. Found: {imageNodeIds.Count}");
+        // }
+        // else if (downloadChildrenImages)
+        // {
+        //     // Check all children recursively
+
+        //     if (enableDebugLogs)
+        //         Debug.Log($"Checking all children for images. Found: {imageNodeIds.Count}");
+        // }
+        CollectImageNodeIds(_currentNodeData, imageNodeIds);
 
         if (imageNodeIds.Count == 0)
         {
@@ -669,7 +571,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         if (hasFills || hasImagePrefix)
         {
             Image backgroundImage = container.AddComponent<Image>();
-
+            backgroundImage.type = Image.Type.Sliced;
             if (hasImagePrefix)
             {
                 ApplyImageSprite(nodeName, backgroundImage);
@@ -700,6 +602,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
             Image image = textGO.AddComponent<Image>();
+            image.type = Image.Type.Sliced;
             ApplyImageSprite(nodeName, image);
 
             if (enableDebugLogs)
@@ -742,6 +645,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
 
         RectTransform rectTransform = imageGO.AddComponent<RectTransform>();
         Image image = imageGO.AddComponent<Image>();
+        image.type = Image.Type.Sliced;
 
         if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
@@ -770,6 +674,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
 
         RectTransform rectTransform = vectorGO.AddComponent<RectTransform>();
         Image image = vectorGO.AddComponent<Image>();
+        image.type = Image.Type.Sliced;
 
         if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
@@ -800,6 +705,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
         {
             Image image = genericGO.AddComponent<Image>();
+            image.type = Image.Type.Sliced;
             ApplyImageSprite(nodeName, image);
 
             if (enableDebugLogs)
@@ -831,11 +737,6 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         }
     }
 
-    /// <summary>
-    /// Creates a styled sprite from Figma node properties
-    /// Uses either Direct mode (fast, no SVG) or SVG mode (slower, debug-friendly)
-    /// First tries to load from cache or Resources, then generates if needed
-    /// </summary>
     private Sprite CreateStyledSpriteFromNode(JObject nodeData, float width, float height)
     {
         if (!useSpriteGeneration)
@@ -849,80 +750,27 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             string nodeId = nodeData["id"]?.ToString() ?? "";
             string cacheKey = $"{nodeName}_{nodeId}";
 
-            // Check cache first
             if (spriteCache.ContainsKey(cacheKey))
             {
-                if (enableDebugLogs)
-                    Debug.Log($"✓ Using cached sprite for {nodeName}");
                 return spriteCache[cacheKey];
             }
 
-            // Try loading from Resources if it was saved before
-            if (saveGeneratedSprites)
+            string sanitizedName = nodeName.SanitizeFileName();
+            Sprite loadedSprite = Resources.Load<Sprite>($"GeneratedSprites/{sanitizedName}");
+            if (loadedSprite != null)
             {
-                string sanitizedName = nodeName.SanitizeFileName();
-                Sprite loadedSprite = Resources.Load<Sprite>($"GeneratedSprites/{sanitizedName}");
-                if (loadedSprite != null)
-                {
-                    spriteCache[cacheKey] = loadedSprite;
-                    if (enableDebugLogs)
-                        Debug.Log($"✓ Loaded sprite from Resources for {nodeName}");
-                    return loadedSprite;
-                }
+                spriteCache[cacheKey] = loadedSprite;
+                if (enableDebugLogs)
+                    Debug.Log($"✓ Loaded sprite: {nodeName}");
+                return loadedSprite;
             }
-
-            // Generate new sprite
             Sprite sprite = null;
 
-            if (generationMode == SpriteGenerationMode.Direct)
-            {
-                // Direct generation - Fast, no SVG
-                sprite = DirectSpriteGenerator.GenerateSpriteFromNodeDirect(
-                    nodeData, 
-                    width, 
-                    height
-                );
+            sprite = DirectSpriteGenerator.GenerateSpriteFromNodeDirect(nodeData, width, height);
 
-                if (sprite != null && enableDebugLogs)
-                {
-                    Debug.Log($"✓ Generated sprite (Direct) for {nodeName} ({width}x{height})");
-                }
-            }
-            else // SVG mode
-            {
-                // SVG-based generation - Slower, but can save SVG for debugging
-                sprite = NodeSpriteGenerator.GenerateSpriteFromNode(
-                    nodeData, 
-                    width, 
-                    height, 
-                    false // Don't save yet, we'll do it below
-                );
-
-                if (sprite != null && enableDebugLogs)
-                {
-                    Debug.Log($"✓ Generated sprite (SVG) for {nodeName} ({width}x{height})");
-                }
-
-                // Optionally save SVG for debugging
-                if (saveGeneratedSVGs)
-                {
-                    string svgString = NodeSpriteGenerator.GenerateSVGFromNode(nodeData, width, height);
-                    if (!string.IsNullOrEmpty(svgString))
-                    {
-                        NodeSpriteGenerator.SaveSVGToFile(svgString, nodeName);
-                    }
-                }
-            }
-
-            // Save to Resources if requested (simplified path - no nodeId folder)
-            if (sprite != null && saveGeneratedSprites)
-            {
-                SaveSpriteToResourcesSimple(sprite, nodeName);
-            }
-
-            // Cache the sprite for reuse
             if (sprite != null)
             {
+                SaveSpriteToResourcesSimple(sprite, nodeName);
                 spriteCache[cacheKey] = sprite;
             }
 
@@ -931,16 +779,11 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         catch (System.Exception ex)
         {
             if (enableDebugLogs)
-            {
-                Debug.LogError($"Failed to generate styled sprite: {ex.Message}");
-            }
+                Debug.LogError($"Sprite generation failed: {ex.Message}");
             return null;
         }
     }
 
-    /// <summary>
-    /// Saves sprite to Resources/GeneratedSprites (no subfolder per nodeId)
-    /// </summary>
     private void SaveSpriteToResourcesSimple(Sprite sprite, string nodeName)
     {
 #if UNITY_EDITOR
@@ -953,60 +796,49 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             string fileName = $"{sanitizedName}.png";
             string filePath = Path.Combine(folderPath, fileName);
 
-            // Convert sprite to texture and save as PNG
             Texture2D texture = sprite.texture;
             byte[] pngData = texture.EncodeToPNG();
             File.WriteAllBytes(filePath, pngData);
 
             if (enableDebugLogs)
-                Debug.Log($"✓ Saved sprite to: Assets/Resources/GeneratedSprites/{fileName}");
+                Debug.Log($"✓ Saved: {fileName}");
 
-            // Refresh AssetDatabase and configure import settings
             UnityEditor.AssetDatabase.Refresh();
 
             string assetPath = $"Assets/Resources/GeneratedSprites/{fileName}";
-            UnityEditor.TextureImporter importer = UnityEditor.AssetImporter.GetAtPath(assetPath) as UnityEditor.TextureImporter;
+            UnityEditor.TextureImporter importer =
+                UnityEditor.AssetImporter.GetAtPath(assetPath) as UnityEditor.TextureImporter;
             if (importer != null)
             {
                 importer.textureType = UnityEditor.TextureImporterType.Sprite;
-                importer.spriteImportMode = UnityEditor.SpriteImportMode.Single;
+                importer.spriteImportMode = UnityEditor.SpriteImportMode.Multiple;
                 importer.mipmapEnabled = false;
                 importer.filterMode = FilterMode.Bilinear;
-                importer.textureCompression = UnityEditor.TextureImporterCompression.Uncompressed;
+                importer.textureCompression = UnityEditor.TextureImporterCompression.Compressed;
+                importer.compressionQuality = 50;
                 UnityEditor.EditorUtility.SetDirty(importer);
                 importer.SaveAndReimport();
             }
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Failed to save sprite: {ex.Message}");
+            Debug.LogError($"Save sprite failed: {ex.Message}");
         }
 #endif
     }
 
-    /// <summary>
-    /// Applies styled sprite to image component, with fallback to traditional fills
-    /// </summary>
     private void ApplyStyledSpriteOrFills(JObject nodeData, Image image, float width, float height)
     {
-        // Try to create styled sprite first
         Sprite styledSprite = CreateStyledSpriteFromNode(nodeData, width, height);
 
         if (styledSprite != null)
         {
             image.sprite = styledSprite;
             image.preserveAspect = true;
-            image.color = Color.white; // Reset color since styling is in the sprite
-
-            if (enableDebugLogs)
-            {
-                string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
-                Debug.Log($"✓ Applied styled sprite to {nodeName}");
-            }
+            image.color = Color.white;
         }
         else
         {
-            // Fallback to traditional fills
             JArray fills = nodeData["fills"] as JArray;
             if (fills != null && fills.Count > 0)
             {
@@ -1014,7 +846,6 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             }
             else
             {
-                // No styling available
                 image.color = Color.clear;
             }
         }
@@ -1249,81 +1080,39 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         }
         createdNodes.Clear();
         figmaPositions.Clear();
-        spriteCache.Clear(); // Clear sprite cache too
+        spriteCache.Clear();
 
         if (enableDebugLogs)
-            Debug.Log("✓ Cleared all created UI elements and sprite cache");
+            Debug.Log("✓ Cleared UI");
     }
 
-    [ContextMenu("Validate Setup")]
-    public void ValidateSetup()
-    {
-        Debug.Log("=== FigmaSimpleConverter Setup Validation ===");
-
-        if (string.IsNullOrEmpty(figmaToken) || figmaToken == "YOUR_FIGMA_TOKEN")
-        {
-            Debug.LogError("❌ Figma token not set");
-        }
-        else
-        {
-            Debug.Log("✅ Figma token configured");
-        }
-
-        // Check URL input
-        if (string.IsNullOrEmpty(figmaUrl))
-        {
-            Debug.LogWarning(
-                "⚠️ Figma URL not set - you can paste a Figma URL to auto-extract IDs"
-            );
-        }
-        else
-        {
-            Debug.Log($"✅ Figma URL provided: {figmaUrl}");
-
-            // Test URL extraction
-            var extractedIds = ExtractFileAndNodeIds(figmaUrl);
-            if (extractedIds != null)
-            {
-                Debug.Log($"✅ URL parsing successful - would extract:");
-                Debug.Log($"  File ID: {extractedIds.Value.fileId}");
-                Debug.Log($"  Node ID: {extractedIds.Value.nodeId}");
-            }
-            else
-            {
-                Debug.LogError("❌ URL parsing failed - check URL format");
-            }
-        }
-
-        if (string.IsNullOrEmpty(fileId) || fileId == "YOUR_FILE_ID")
-        {
-            Debug.LogError("❌ File ID not set - use 'Extract IDs from URL' or set manually");
-        }
-        else
-        {
-            Debug.Log($"✅ File ID configured: {fileId}");
-        }
-
-        if (string.IsNullOrEmpty(nodeId) || nodeId == "YOUR_NODE_ID")
-        {
-            Debug.LogError("❌ Node ID not set - use 'Extract IDs from URL' or set manually");
-        }
-        else
-        {
-            Debug.Log($"✅ Node ID configured: {nodeId}");
-        }
-
-        Debug.Log(
-            $"✅ Image download mode: {(downloadOnlyTargetNode ? "Target node only" : downloadChildrenImages ? "With children" : "Disabled")}"
-        );
-        Debug.Log("=== Validation Complete ===");
-    }
-
-    // IFigmaNodeConverter interface implementation
     public void ListAvailableNodes()
     {
-        Debug.Log(
-            "Simple converter doesn't maintain a list of available nodes. Use the download and convert workflow."
-        );
+        Debug.Log("Use the download and convert workflow.");
+    }
+
+    public void ValidateSetup()
+    {
+        bool valid = true;
+        if (string.IsNullOrEmpty(figmaToken) || figmaToken == "YOUR_FIGMA_TOKEN")
+        {
+            Debug.LogError("Figma token not set");
+            valid = false;
+        }
+        if (string.IsNullOrEmpty(fileId) || fileId == "YOUR_FILE_ID")
+        {
+            Debug.LogError("File ID not set");
+            valid = false;
+        }
+        if (string.IsNullOrEmpty(nodeId) || nodeId == "YOUR_NODE_ID")
+        {
+            Debug.LogError("Node ID not set");
+            valid = false;
+        }
+        if (valid && enableDebugLogs)
+        {
+            Debug.Log("✓ Setup valid");
+        }
     }
 
     [ContextMenu("Generate Prefabs")]
@@ -1359,99 +1148,6 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             Debug.Log("✓ Prefab generation completed!");
     }
 
-    [ContextMenu("Test Sprite Generation")]
-    public void TestSpriteGeneration()
-    {
-        if (_currentNodeData == null)
-        {
-            Debug.LogError("No node data available. Please download data first.");
-            return;
-        }
-
-        // Get node dimensions
-        JObject boundingBox = _currentNodeData["absoluteBoundingBox"] as JObject;
-        if (boundingBox == null)
-        {
-            Debug.LogError("No bounding box found in node data.");
-            return;
-        }
-
-        float width = boundingBox["width"]?.ToObject<float>() ?? 100f;
-        float height = boundingBox["height"]?.ToObject<float>() ?? 100f;
-        string nodeName = _currentNodeData["name"]?.ToString() ?? "TestNode";
-
-        Debug.Log($"Testing Sprite Generation ({generationMode} mode) with node: {nodeName} ({width}x{height})");
-
-        Sprite sprite = null;
-
-        if (generationMode == SpriteGenerationMode.Direct)
-        {
-            // Test Direct generation
-            sprite = DirectSpriteGenerator.GenerateSpriteFromNodeDirect(
-                _currentNodeData,
-                width,
-                height
-            );
-
-            if (sprite != null)
-            {
-                Debug.Log("✓ Sprite generated successfully (Direct mode - no SVG)");
-            }
-        }
-        else
-        {
-            // Test SVG generation
-            string svgString = NodeSpriteGenerator.GenerateSVGFromNode(_currentNodeData, width, height);
-
-            if (!string.IsNullOrEmpty(svgString))
-            {
-                Debug.Log("✓ SVG generated successfully");
-
-                if (saveGeneratedSVGs)
-                {
-                    NodeSpriteGenerator.SaveSVGToFile(svgString, nodeName);
-                }
-
-                // Generate sprite from SVG
-                sprite = NodeSpriteGenerator.GenerateSpriteFromNode(
-                    _currentNodeData,
-                    width,
-                    height,
-                    saveGeneratedSprites
-                );
-
-                if (sprite != null)
-                {
-                    Debug.Log("✓ Sprite generated successfully (SVG mode)");
-                }
-            }
-            else
-            {
-                Debug.LogError("✗ Failed to generate SVG");
-            }
-        }
-
-        if (sprite != null)
-        {
-            // Create a test GameObject to display the sprite
-            GameObject testGO = new GameObject($"TestSprite_{nodeName}");
-            Image testImage = testGO.AddComponent<Image>();
-            testImage.sprite = sprite;
-
-            RectTransform rectTransform = testGO.GetComponent<RectTransform>();
-            rectTransform.sizeDelta = new Vector2(width, height);
-
-            Debug.Log($"✓ Test sprite GameObject created: {testGO.name}");
-        }
-        else
-        {
-            Debug.LogError("✗ Failed to generate sprite");
-        }
-    }
-
-    /// <summary>
-    /// Saves downloaded Figma node data to Resources/FigmaData for review
-    /// </summary>
     private void SaveNodeDataToResources(string jsonContent)
     {
         try
@@ -1466,7 +1162,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             File.WriteAllText(filePath, jsonContent);
 
             if (enableDebugLogs)
-                Debug.Log($"✓ Saved Figma node data to: Assets/Resources/FigmaData/{fileName}");
+                Debug.Log($"✓ Saved: {fileName}");
 
 #if UNITY_EDITOR
             UnityEditor.AssetDatabase.Refresh();
@@ -1474,43 +1170,7 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Failed to save Figma data to Resources: {ex.Message}");
-        }
-    }
-
-    [ContextMenu("Load Node Data from Resources")]
-    public void LoadNodeDataFromResources()
-    {
-        try
-        {
-            string sanitizedNodeId = nodeId.Replace(":", "-");
-            string resourcePath = $"FigmaData/figma_node_{sanitizedNodeId}";
-
-            TextAsset jsonAsset = Resources.Load<TextAsset>(resourcePath);
-            if (jsonAsset != null)
-            {
-                string jsonContent = jsonAsset.text;
-                JObject root = JObject.Parse(jsonContent);
-                _currentNodeData = root["nodes"]?[nodeId]?["document"] as JObject;
-
-                if (_currentNodeData != null)
-                {
-                    if (enableDebugLogs)
-                        Debug.Log($"✓ Loaded node data from Resources: {_currentNodeData["name"]}");
-                }
-                else
-                {
-                    Debug.LogError($"Could not find document node in loaded data");
-                }
-            }
-            else
-            {
-                Debug.LogError($"Could not load node data from Resources: {resourcePath}");
-            }
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to load node data from Resources: {ex.Message}");
+            Debug.LogError($"Save failed: {ex.Message}");
         }
     }
 }
