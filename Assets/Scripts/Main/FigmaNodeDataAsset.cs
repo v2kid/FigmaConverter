@@ -237,3 +237,70 @@ public class FigmaNodeDataAsset : ScriptableObject
     }
 }
 
+#if UNITY_EDITOR
+[CustomEditor(typeof(FigmaNodeDataAsset))]
+[CanEditMultipleObjects]  // ✅ Cho phép edit nhiều asset cùng lúc
+public class FigmaNodeDataAssetEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
+
+        if (GUILayout.Button("Add New Node Data"))
+        {
+            foreach (var obj in targets)
+            {
+                var asset = obj as FigmaNodeDataAsset;
+                if (asset != null)
+                    asset.AddNewNodeData();
+            }
+        }
+
+        if (GUILayout.Button("Clear All Node Data"))
+        {
+            if (EditorUtility.DisplayDialog("Confirm Clear", "Are you sure you want to clear all node data?", "Yes", "No"))
+            {
+                foreach (var obj in targets)
+                {
+                    var asset = obj as FigmaNodeDataAsset;
+                    if (asset != null)
+                        asset.ClearAllNodeData();
+                }
+            }
+        }
+
+        if (GUILayout.Button("Refresh All Node Data"))
+        {
+            foreach (var obj in targets)
+            {
+                var asset = obj as FigmaNodeDataAsset;
+                if (asset != null)
+                    asset.RefreshAllNodeData();
+            }
+        }
+
+        if (GUILayout.Button("Import from Resources Folder"))
+        {
+            foreach (var obj in targets)
+            {
+                var asset = obj as FigmaNodeDataAsset;
+                if (asset != null)
+                    asset.ImportFromResourcesFolder();
+            }
+        }
+
+        if (GUILayout.Button("Debug Node Info"))
+        {
+            foreach (var obj in targets)
+            {
+                var asset = obj as FigmaNodeDataAsset;
+                if (asset != null)
+                    asset.DebugNodeInfo();
+            }
+        }
+    }
+}
+#endif
