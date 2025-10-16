@@ -269,25 +269,25 @@ public static class FigmaUIHelper
     }
 
 
-    public static string SanitizeFileName(this string fileName)
-    {
-        if (string.IsNullOrEmpty(fileName)) return "unknown";
+    // public static string SanitizeFileName(this string fileName)
+    // {
+    //     if (string.IsNullOrEmpty(fileName)) return "unknown";
 
-        // Remove invalid filename characters
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        foreach (char c in invalidChars)
-        {
-            fileName = fileName.Replace(c, '_');
-        }
+    //     // Remove invalid filename characters
+    //     char[] invalidChars = Path.GetInvalidFileNameChars();
+    //     foreach (char c in invalidChars)
+    //     {
+    //         fileName = fileName.Replace(c, '_');
+    //     }
 
-        // Replace spaces with underscores
-        fileName = fileName.Replace(' ', '_');
+    //     // Replace spaces with underscores
+    //     fileName = fileName.Replace(' ', '_');
 
-        return fileName;
-    }
-    /// <summary>
-    /// Creates a prefab from the given GameObject
-    /// </summary>
+    //     return fileName;
+    // }
+    // /// <summary>
+    // /// Creates a prefab from the given GameObject
+    // /// </summary>
     public static GameObject CreatePrefab(GameObject source, string path, string name)
     {
 #if UNITY_EDITOR

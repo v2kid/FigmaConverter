@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 79fee5cfd0a48462096a536d7c427ff2
+guid: bc6a32ef24ab94e839e87f0017a56088
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2450181519187294690
-    second: tag_image_47_0
+      213: -4513292097643184276
+    second: tag_image_Dota 2 - redesign - searching_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -126,13 +126,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: tag_image_47_0
+      name: tag_image_Dota 2 - redesign - searching_0
       rect:
         serializedVersion: 2
-        x: 2
-        y: 5
-        width: 36
-        height: 30
+        x: 0
+        y: 0
+        width: 1920
+        height: 1080
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -141,8 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e164d91d3e43ffdd0800000000000000
-      internalID: -2450181519187294690
+      spriteID: c6f7668efb09d51c0800000000000000
+      internalID: -4513292097643184276
       vertices: []
       indices: 
       edges: []
@@ -161,7 +161,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      tag_image_47_0: -2450181519187294690
+      tag_image_Dota 2 - redesign - searching_0: -4513292097643184276
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

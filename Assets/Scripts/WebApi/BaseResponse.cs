@@ -3,10 +3,10 @@ using System.Runtime.Serialization;
 [DataContract]
 public class BaseResponse
 {
-    [DataMember(IsRequired = true)]
+    [DataMember(IsRequired = false)]
     public int status { get; set; }
 
-    [DataMember(IsRequired = true)]
+    [DataMember(IsRequired = false)]
     public bool error { get; set; }
 
     [DataMember]
