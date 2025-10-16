@@ -210,31 +210,65 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
 
         List<string> imageNodeIds = new List<string>();
 
-        // if (downloadOnlyTargetNode)
-        // {
-        //     // Only check the target node itself
-        //     CheckNodeForImages(_currentNodeData, imageNodeIds);
-        //     if (enableDebugLogs)
-        //         Debug.Log($"Checking target node only for images. Found: {imageNodeIds.Count}");
-        // }
-        // else if (downloadChildrenImages)
-        // {
-        //     // Check all children recursively
-
-        //     if (enableDebugLogs)
-        //         Debug.Log($"Checking all children for images. Found: {imageNodeIds.Count}");
-        // }
+        // Collect image nodes (with IMAGE_ prefix)
         CollectImageNodeIds(_currentNodeData, imageNodeIds);
+        
+        // Collect icon frames (FRAME containing only VECTOR children)
+        CollectIconFrameIds(_currentNodeData, imageNodeIds);
 
         if (imageNodeIds.Count == 0)
         {
             if (enableDebugLogs)
-                Debug.Log("No image nodes found to download.");
+                Debug.Log("No image nodes or icon frames found to download.");
             yield break;
         }
 
+        if (enableDebugLogs)
+            Debug.Log($"Found {imageNodeIds.Count} nodes to download as images");
+
         // Download images
         yield return DownloadImagesFromIds(imageNodeIds);
+    }
+
+    private void CollectIconFrameIds(JToken token, List<string> iconFrameIds)
+    {
+        if (token == null)
+            return;
+
+        if (token.Type == JTokenType.Object)
+        {
+            var obj = (JObject)token;
+            string nodeId = obj["id"]?.ToString();
+            string nodeType = obj["type"]?.ToString();
+
+            // Check if this is an icon frame
+            if ((nodeType == "FRAME" || nodeType == "GROUP" || nodeType == "COMPONENT") 
+                && !string.IsNullOrEmpty(nodeId) 
+                && FigmaIconDetector.IsIconFrame(obj))
+            {
+                if (!iconFrameIds.Contains(nodeId))
+                {
+                    iconFrameIds.Add(nodeId);
+                    string nodeName = obj["name"]?.ToString() ?? "Icon";
+                    if (enableDebugLogs)
+                        Debug.Log($"Found icon frame: {nodeName} ({nodeId})");
+                }
+                
+                // Don't recurse into children - we're downloading the whole frame
+                return;
+            }
+
+            // Recursively check children
+            if (obj.TryGetValue("children", out JToken childrenToken))
+            {
+                CollectIconFrameIds(childrenToken, iconFrameIds);
+            }
+        }
+        else if (token.Type == JTokenType.Array)
+        {
+            foreach (var child in (JArray)token)
+                CollectIconFrameIds(child, iconFrameIds);
+        }
     }
 
     private void CheckNodeForImages(JObject nodeData, List<string> imageNodeIds)
@@ -537,8 +571,13 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             ApplyTransform(nodeData, nodeGameObject);
             ApplyVisibility(nodeData, nodeGameObject);
 
-            // Process children if they exist
-            if (nodeData["children"] is JArray children)
+            // Check if this is an icon frame - if so, skip processing children
+            // because they've already been combined into a single sprite
+            bool isIconFrame = (nodeType == "FRAME" || nodeType == "GROUP" || nodeType == "COMPONENT") 
+                            && FigmaIconDetector.IsIconFrame(nodeData);
+
+            // Process children if they exist and this is not an icon frame
+            if (!isIconFrame && nodeData["children"] is JArray children)
             {
                 foreach (JObject child in children)
                 {
@@ -564,6 +603,28 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
 
         RectTransform rectTransform = container.AddComponent<RectTransform>();
 
+        // Check if this is an icon frame (contains only vector children)
+        bool isIconFrame = FigmaIconDetector.IsIconFrame(nodeData);
+        
+        if (isIconFrame)
+        {
+            // Treat as a single combined icon sprite
+            Image iconImage = container.AddComponent<Image>();
+            iconImage.type = Image.Type.Sliced;
+            
+            JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
+            float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
+            float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
+            
+            ApplyCombinedIconSprite(nodeData, iconImage, width, height);
+            
+            if (enableDebugLogs)
+                Debug.Log($"✓ Created combined icon: {nodeName}");
+            
+            // Don't process children - they're already combined in the sprite
+            return container;
+        }
+
         JArray fills = nodeData["fills"] as JArray;
         bool hasFills = fills != null && fills.Count > 0;
         bool hasImagePrefix = nodeName.StartsWith(Constant.IMAGE_PREFIX);
@@ -578,7 +639,6 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
             }
             else if (hasFills)
             {
-                // Get dimensions for styled sprite generation
                 JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
                 float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
                 float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
@@ -588,6 +648,33 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         }
 
         return container;
+    }
+
+    private void ApplyCombinedIconSprite(JObject nodeData, Image image, float width, float height)
+    {
+        string nodeName = nodeData["name"]?.ToString() ?? "Icon";
+        string sanitizedName = nodeName.SanitizeFileName();
+
+        // Try to load the downloaded icon image from Resources/Sprites
+        string nodeIdForPath = nodeId.Replace(":", "-");
+        Sprite iconSprite = Resources.Load<Sprite>($"Sprites/{nodeIdForPath}/{sanitizedName}");
+        
+        if (iconSprite != null)
+        {
+            image.sprite = iconSprite;
+            image.preserveAspect = true;
+            
+            if (enableDebugLogs)
+                Debug.Log($"✓ Loaded icon frame: {nodeName}");
+        }
+        else
+        {
+            if (enableDebugLogs)
+                Debug.LogWarning($"⚠️ Icon frame not found in Resources: Sprites/{nodeIdForPath}/{sanitizedName}");
+            
+            // Set transparent as fallback
+            image.color = Color.clear;
+        }
     }
 
     private GameObject CreateTextNode(JObject nodeData, Transform parent)
@@ -682,15 +769,39 @@ public class FigmaSimpleConverter : MonoBehaviour, IFigmaNodeConverter
         }
         else
         {
-            // Get dimensions for styled sprite generation
             JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
             float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
             float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
 
-            ApplyStyledSpriteOrFills(nodeData, image, width, height);
+            // Use vector-specific rendering for icons and complex paths
+            ApplyVectorSprite(nodeData, image, width, height);
         }
 
         return vectorGO;
+    }
+
+    private void ApplyVectorSprite(JObject nodeData, Image image, float width, float height)
+    {
+        string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
+        string sanitizedName = nodeName.SanitizeFileName();
+
+        // Try loading from Resources (if it was downloaded as image via Image API)
+        string nodeIdForPath = nodeId.Replace(":", "-");
+        Sprite loadedSprite = Resources.Load<Sprite>($"Sprites/{nodeIdForPath}/{sanitizedName}");
+        
+        if (loadedSprite != null)
+        {
+            image.sprite = loadedSprite;
+            image.preserveAspect = true;
+            if (enableDebugLogs)
+                Debug.Log($"✓ Loaded vector sprite: {nodeName}");
+            return;
+        }
+
+        // Fallback to basic styled sprite generation
+        if (enableDebugLogs)
+            Debug.LogWarning($"⚠️ Vector not found in downloads, using fallback for: {nodeName}");
+        ApplyStyledSpriteOrFills(nodeData, image, width, height);
     }
 
     private GameObject CreateGenericNode(JObject nodeData, Transform parent)

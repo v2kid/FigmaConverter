@@ -464,9 +464,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   figmaToken: figd_iTTZcK3iAUZkefIkiyh2Tk7SXTvgoSOz09Otj2F_
-  figmaUrl: https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1005-574&m=dev
-  fileId: q3uY5p0UnEO5EKHdFnGlWy
-  nodeId: 1427:7568
+  figmaUrl: https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1001-15&m=dev
+  fileId: UqdI4flYdmwnwKuQ83EJTF
+  nodeId: 1001:15
   targetCanvas: {fileID: 1979903585}
   createNewCanvas: 1
   canvasName: FigmaUI_Canvas
@@ -474,7 +474,7 @@ MonoBehaviour:
   defaultTextColor: {r: 0, g: 0, b: 0, a: 1}
   scaleFactor: 1
   imageFormat: png
-  imageScale: 1
+  imageScale: 4
   useSpriteGeneration: 1
   enableDebugLogs: 0
 --- !u!1 &1979903582
