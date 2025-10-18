@@ -26,6 +26,25 @@ public class DirectSpriteGenerator
     {
         try
         {
+            string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
+            Debug.Log(
+                $"DirectSpriteGenerator: Generating sprite for {nodeName} ({width}x{height})"
+            );
+
+            if (imageData != null)
+            {
+                Debug.Log(
+                    $"DirectSpriteGenerator: Image data available: {imageData.Count} entries"
+                );
+                foreach (var kvp in imageData)
+                {
+                    Debug.Log($"  - {kvp.Key}: {kvp.Value?.Length ?? 0} characters");
+                }
+            }
+            else
+            {
+                Debug.Log("DirectSpriteGenerator: No image data provided");
+            }
             // Calculate directional effect padding for drop shadows
             Vector4 effectPadding = CalculateEffectPaddingDirectional(nodeData);
 
@@ -174,9 +193,11 @@ public class DirectSpriteGenerator
             if (imageFill != null)
             {
                 string imageUrl = imageFill["imageUrl"]?.ToString();
+                string imageRef = imageFill["imageRef"]?.ToString();
+
                 if (!string.IsNullOrEmpty(imageUrl))
                 {
-                    // Download image asynchronously
+                    // Download image asynchronously from URL
                     yield return DownloadImageFromUrlAsync(
                         imageUrl,
                         (downloadedTexture) =>
@@ -195,7 +216,7 @@ public class DirectSpriteGenerator
                             else
                             {
                                 Debug.LogError(
-                                    "Failed to download image, generating sprite without image fill"
+                                    "Failed to download image from URL, generating sprite without image fill"
                                 );
                                 // Generate sprite without image fill
                                 Sprite sprite = GenerateSpriteFromNodeDirect(
@@ -210,10 +231,39 @@ public class DirectSpriteGenerator
                     );
                     yield break;
                 }
+                else if (!string.IsNullOrEmpty(imageRef))
+                {
+                    // Check if we have image data for this imageRef
+                    if (imageData != null && imageData.ContainsKey(imageRef))
+                    {
+                        // We have the image data, generate sprite normally
+                        Sprite sprite = GenerateSpriteFromNodeDirect(
+                            nodeData,
+                            width,
+                            height,
+                            imageData
+                        );
+                        onComplete?.Invoke(sprite);
+                        yield break;
+                    }
+                    else
+                    {
+                        Debug.LogError($"Image data not found for imageRef: {imageRef}");
+                        // Generate sprite without image fill
+                        Sprite sprite = GenerateSpriteFromNodeDirect(
+                            nodeData,
+                            width,
+                            height,
+                            imageData
+                        );
+                        onComplete?.Invoke(sprite);
+                        yield break;
+                    }
+                }
             }
         }
 
-        // No async download needed, generate sprite normally
+        // No image fills or no async download needed, generate sprite normally
         Sprite normalSprite = GenerateSpriteFromNodeDirect(nodeData, width, height, imageData);
         onComplete?.Invoke(normalSprite);
     }
@@ -867,9 +917,47 @@ public class DirectSpriteGenerator
     {
         try
         {
+            if (string.IsNullOrEmpty(base64Data))
+            {
+                Debug.LogError("Base64 data is null or empty");
+                return null;
+            }
+
             byte[] imageData = Convert.FromBase64String(base64Data);
-            Texture2D texture = new Texture2D(1, 1);
-            texture.LoadImage(imageData, true);
+            if (imageData == null || imageData.Length == 0)
+            {
+                Debug.LogError("Failed to convert base64 to byte array");
+                return null;
+            }
+
+            Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            texture.name = "GeneratedFromBase64";
+
+            // Load image data - this will resize the texture automatically
+            // Set markNonReadable = false to ensure texture is readable
+            bool success = texture.LoadImage(imageData, false);
+
+            if (!success)
+            {
+                Debug.LogError("Failed to load image data into texture");
+                UnityEngine.Object.DestroyImmediate(texture);
+                return null;
+            }
+
+            // Ensure texture is readable
+            texture.Apply();
+
+            // Verify texture is readable
+            if (!texture.isReadable)
+            {
+                Debug.LogError("Texture is not readable after LoadImage and Apply");
+                UnityEngine.Object.DestroyImmediate(texture);
+                return null;
+            }
+
+            Debug.Log(
+                $"Successfully loaded image from base64: {texture.width}x{texture.height} (Readable: {texture.isReadable})"
+            );
             return texture;
         }
         catch (Exception ex)
@@ -901,13 +989,44 @@ public class DirectSpriteGenerator
             using (WebClient client = new WebClient())
             {
                 byte[] imageData = client.DownloadData(imageUrl);
-                Texture2D texture = new Texture2D(1, 1);
-                texture.LoadImage(imageData, true);
+                if (imageData == null || imageData.Length == 0)
+                {
+                    Debug.LogError($"Downloaded image data is null or empty from: {imageUrl}");
+                    return null;
+                }
+
+                Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+                texture.name = "DownloadedFromUrl";
+
+                // Load image data - set markNonReadable = false to ensure texture is readable
+                bool success = texture.LoadImage(imageData, false);
+
+                if (!success)
+                {
+                    Debug.LogError($"Failed to load image data into texture from: {imageUrl}");
+                    UnityEngine.Object.DestroyImmediate(texture);
+                    return null;
+                }
+
+                // Ensure texture is readable
+                texture.Apply();
+
+                // Verify texture is readable
+                if (!texture.isReadable)
+                {
+                    Debug.LogError(
+                        $"Texture is not readable after LoadImage and Apply from: {imageUrl}"
+                    );
+                    UnityEngine.Object.DestroyImmediate(texture);
+                    return null;
+                }
 
                 // Cache the downloaded image
                 _downloadedImageCache[imageUrl] = texture;
 
-                Debug.Log($"Successfully downloaded image from: {imageUrl}");
+                Debug.Log(
+                    $"Successfully downloaded image from: {imageUrl} ({texture.width}x{texture.height}) (Readable: {texture.isReadable})"
+                );
                 return texture;
             }
         }
@@ -953,11 +1072,35 @@ public class DirectSpriteGenerator
                     request
                 );
 
-                // Cache the downloaded image
-                _downloadedImageCache[imageUrl] = texture;
+                if (texture != null)
+                {
+                    // Ensure texture is readable
+                    texture.Apply();
 
-                Debug.Log($"Successfully downloaded image from: {imageUrl}");
-                onComplete?.Invoke(texture);
+                    // Verify texture is readable
+                    if (!texture.isReadable)
+                    {
+                        Debug.LogError(
+                            $"Async downloaded texture is not readable from: {imageUrl}"
+                        );
+                        UnityEngine.Object.DestroyImmediate(texture);
+                        onComplete?.Invoke(null);
+                        yield break;
+                    }
+
+                    // Cache the downloaded image
+                    _downloadedImageCache[imageUrl] = texture;
+
+                    Debug.Log(
+                        $"Successfully downloaded image from: {imageUrl} ({texture.width}x{texture.height}) (Readable: {texture.isReadable})"
+                    );
+                    onComplete?.Invoke(texture);
+                }
+                else
+                {
+                    Debug.LogError($"Downloaded texture is null from: {imageUrl}");
+                    onComplete?.Invoke(null);
+                }
             }
             else
             {
@@ -1033,8 +1176,11 @@ public class DirectSpriteGenerator
     {
         // Get image data from fill
         string imageRef = imageFill["imageRef"]?.ToString();
+        string imageUrl = imageFill["imageUrl"]?.ToString();
 
-        if (string.IsNullOrEmpty(imageRef))
+        Debug.Log($"RenderImageFill: imageRef={imageRef}, imageUrl={imageUrl}");
+
+        if (string.IsNullOrEmpty(imageRef) && string.IsNullOrEmpty(imageUrl))
         {
             Debug.LogWarning("Image fill missing both imageRef and imageUrl");
             return;
@@ -1042,17 +1188,35 @@ public class DirectSpriteGenerator
 
         Texture2D imageTexture = null;
 
-        if (
+        // Try to get image from URL first
+        if (!string.IsNullOrEmpty(imageUrl))
+        {
+            Debug.Log($"RenderImageFill: Downloading image from URL: {imageUrl}");
+            imageTexture = DownloadImageFromUrl(imageUrl);
+        }
+        // Fallback to base64 data from dictionary
+        else if (
             !string.IsNullOrEmpty(imageRef)
             && imageData != null
             && imageData.TryGetValue(imageRef, out string base64Data)
         )
         {
+            Debug.Log($"RenderImageFill: Loading image from base64 data for ref: {imageRef}");
             imageTexture = LoadImageFromBase64(base64Data);
         }
         else
         {
             Debug.LogWarning($"Image data not found for ref: {imageRef} and no URL provided");
+            if (imageData != null)
+            {
+                Debug.LogWarning($"Available imageRefs: {string.Join(", ", imageData.Keys)}");
+            }
+            return;
+        }
+
+        if (imageTexture == null)
+        {
+            Debug.LogError($"Failed to load image for ref: {imageRef} or URL: {imageUrl}");
             return;
         }
 
@@ -1117,9 +1281,39 @@ public class DirectSpriteGenerator
         bool[] shapeMask
     )
     {
-        Color[] imagePixels = imageTexture.GetPixels();
-        int imageWidth = imageTexture.width;
-        int imageHeight = imageTexture.height;
+        if (imageTexture == null)
+        {
+            Debug.LogError("RenderImageToPixels: imageTexture is null");
+            return;
+        }
+
+        if (!imageTexture.isReadable)
+        {
+            Debug.LogError(
+                $"RenderImageToPixels: imageTexture '{imageTexture.name}' is not readable"
+            );
+            return;
+        }
+
+        Color[] imagePixels;
+        int imageWidth;
+        int imageHeight;
+
+        try
+        {
+            imagePixels = imageTexture.GetPixels();
+            imageWidth = imageTexture.width;
+            imageHeight = imageTexture.height;
+
+            Debug.Log(
+                $"RenderImageToPixels: Rendering {imageWidth}x{imageHeight} image to {textureWidth}x{textureHeight} texture"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"RenderImageToPixels: Failed to get pixels from texture: {ex.Message}");
+            return;
+        }
 
         // Calculate scaling based on scale mode
         float finalScaleX = scaleX;
