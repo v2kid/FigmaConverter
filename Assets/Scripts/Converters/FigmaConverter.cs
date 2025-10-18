@@ -297,6 +297,72 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
         }
     }
 
+    [ContextMenu("Clear Sprite Cache and Regenerate")]
+    public void ClearSpriteCacheAndRegenerate()
+    {
+        if (string.IsNullOrEmpty(config.nodeId))
+        {
+            Debug.LogWarning("Node ID not set. Cannot clear sprites.");
+            return;
+        }
+
+        // Clear in-memory cache
+        _spriteCache?.Clear();
+        Debug.Log("✓ Cleared in-memory sprite cache");
+
+        // Delete saved sprite files
+        string sanitizedNodeId = config.nodeId.Replace(":", "-");
+        string spriteFolderPath = System.IO.Path.Combine(
+            Application.dataPath,
+            "Resources",
+            "Sprites",
+            sanitizedNodeId
+        );
+
+        if (System.IO.Directory.Exists(spriteFolderPath))
+        {
+            string[] files = System.IO.Directory.GetFiles(spriteFolderPath, "*.png");
+            foreach (string file in files)
+            {
+                System.IO.File.Delete(file);
+            }
+            System.IO.Directory.Delete(spriteFolderPath);
+            Debug.Log($"✓ Deleted {files.Length} saved sprite files");
+        }
+
+        // Clear created nodes to force regeneration
+        _createdNodes.Clear();
+        Debug.Log("✓ Cleared created nodes cache");
+
+#if UNITY_EDITOR
+        UnityEditor.AssetDatabase.Refresh();
+#endif
+
+        Debug.Log("✓ Sprite cache cleared. Next conversion will regenerate sprites with drop shadows.");
+    }
+
+    [ContextMenu("Check Sprite Generation Config")]
+    public void CheckSpriteGenerationConfig()
+    {
+        Debug.Log("=== Sprite Generation Configuration ===");
+        Debug.Log($"useSpriteGeneration: {config.useSpriteGeneration}");
+        Debug.Log($"enableDebugLogs: {config.enableDebugLogs}");
+        Debug.Log($"spriteCacheSize: {config.spriteCacheSize} MB");
+        Debug.Log($"nodeCacheSize: {config.nodeCacheSize} entries");
+        Debug.Log($"targetNodeId: {config.targetNodeId}");
+        Debug.Log($"nodeId: {config.nodeId}");
+        
+        if (!config.useSpriteGeneration)
+        {
+            Debug.LogWarning("⚠️ useSpriteGeneration is DISABLED! Sprites will not be generated.");
+            Debug.LogWarning("⚠️ Enable useSpriteGeneration in config to generate sprites with drop shadows.");
+        }
+        else
+        {
+            Debug.Log("✓ Sprite generation is ENABLED");
+        }
+    }
+
     #endregion
 
     #region Download Operations

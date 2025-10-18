@@ -45,13 +45,25 @@ public static class SpriteSaveUtility
             string fileName = $"{spriteName}.png";
             string filePath = Path.Combine(folderPath, fileName);
 
-            // Encode texture to PNG
-            byte[] pngData = sprite.texture.EncodeToPNG();
+            // Crop texture to sprite bounds to remove padding
+            Texture2D croppedTexture = CropTextureToSpriteBounds(sprite);
+            if (croppedTexture == null)
+            {
+                Debug.LogWarning($"Failed to crop sprite {spriteName}");
+                return null;
+            }
+
+            // Encode cropped texture to PNG
+            byte[] pngData = croppedTexture.EncodeToPNG();
             if (pngData == null || pngData.Length == 0)
             {
                 Debug.LogWarning($"Failed to encode sprite {spriteName} to PNG");
+                Object.DestroyImmediate(croppedTexture);
                 return null;
             }
+
+            // Clean up cropped texture
+            Object.DestroyImmediate(croppedTexture);
 
             // Write to file
             File.WriteAllBytes(filePath, pngData);
@@ -108,5 +120,37 @@ public static class SpriteSaveUtility
         string resourcePath = $"Sprites/{sanitizedNodeId}/{spriteName}";
         Sprite sprite = Resources.Load<Sprite>(resourcePath);
         return sprite != null;
+    }
+
+    /// <summary>
+    /// Crops texture to sprite bounds to remove padding
+    /// </summary>
+    private static Texture2D CropTextureToSpriteBounds(Sprite sprite)
+    {
+        if (sprite == null || sprite.texture == null)
+            return null;
+
+        // Get sprite bounds in texture coordinates
+        Rect spriteRect = sprite.textureRect;
+        int x = Mathf.RoundToInt(spriteRect.x);
+        int y = Mathf.RoundToInt(spriteRect.y);
+        int width = Mathf.RoundToInt(spriteRect.width);
+        int height = Mathf.RoundToInt(spriteRect.height);
+
+        // Ensure bounds are within texture
+        x = Mathf.Clamp(x, 0, sprite.texture.width);
+        y = Mathf.Clamp(y, 0, sprite.texture.height);
+        width = Mathf.Clamp(width, 1, sprite.texture.width - x);
+        height = Mathf.Clamp(height, 1, sprite.texture.height - y);
+
+        // Create new texture with exact sprite dimensions
+        Texture2D croppedTexture = new Texture2D(width, height, sprite.texture.format, false);
+
+        // Copy pixels from original texture
+        Color[] pixels = sprite.texture.GetPixels(x, y, width, height);
+        croppedTexture.SetPixels(pixels);
+        croppedTexture.Apply();
+
+        return croppedTexture;
     }
 }
