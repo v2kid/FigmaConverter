@@ -198,6 +198,189 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &409666034
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 409666035}
+  m_Layer: 0
+  m_Name: ObjectPool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &409666035
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 409666034}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &451956634
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 451956636}
+  - component: {fileID: 451956635}
+  m_Layer: 0
+  m_Name: Test
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &451956635
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 451956634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e920f180e626d41e3b3e6454316fa09d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jsonInput: "  {\n                        \"id\": \"1041:176\",\n                       
+    \"name\": \"Frame 403\",\n                        \"type\": \"FRAME\",\n                       
+    \"scrollBehavior\": \"SCROLLS\",\n                        \"children\": [\n                         
+    {\n                            \"id\": \"1041:177\",\n                           
+    \"name\": \"tag_image_1\",\n                            \"type\": \"RECTANGLE\",\n                           
+    \"scrollBehavior\": \"SCROLLS\",\n                            \"blendMode\":
+    \"PASS_THROUGH\",\n                            \"fills\": [\n                             
+    {\n                                \"blendMode\": \"NORMAL\",\n                               
+    \"type\": \"IMAGE\",\n                                \"scaleMode\": \"FILL\",\n                               
+    \"imageRef\": \"a8810940dfeca1ca6d888f1178fdb1e21ab3cef3\"\n                             
+    }\n                            ],\n                            \"strokes\": [],\n                           
+    \"strokeWeight\": 1.0,\n                            \"strokeAlign\": \"INSIDE\",\n                           
+    \"absoluteBoundingBox\": {\n                              \"x\": 1978.0,\n                             
+    \"y\": 412.0,\n                              \"width\": 28.0,\n                             
+    \"height\": 28.0\n                            },\n                           
+    \"absoluteRenderBounds\": {\n                              \"x\": 1978.0,\n                             
+    \"y\": 412.0,\n                              \"width\": 28.0,\n                             
+    \"height\": 28.0\n                            },\n                           
+    \"targetAspectRatio\": { \"x\": 256.0, \"y\": 256.0 },\n                           
+    \"constraints\": {\n                              \"vertical\": \"TOP\",\n                             
+    \"horizontal\": \"LEFT\"\n                            },\n                           
+    \"layoutAlign\": \"INHERIT\",\n                            \"layoutGrow\": 0.0,\n                           
+    \"layoutSizingHorizontal\": \"FIXED\",\n                            \"layoutSizingVertical\":
+    \"FIXED\",\n                            \"effects\": [],\n                           
+    \"interactions\": []\n                          },\n                         
+    {\n                            \"id\": \"1041:178\",\n                           
+    \"name\": \"5000\",\n                            \"type\": \"TEXT\",\n                           
+    \"scrollBehavior\": \"SCROLLS\",\n                            \"blendMode\":
+    \"PASS_THROUGH\",\n                            \"fills\": [\n                             
+    {\n                                \"blendMode\": \"NORMAL\",\n                               
+    \"type\": \"SOLID\",\n                                \"color\": {\n                                 
+    \"r\": 1.0,\n                                  \"g\": 1.0,\n                                 
+    \"b\": 1.0,\n                                  \"a\": 1.0\n                               
+    }\n                              }\n                            ],\n                           
+    \"strokes\": [],\n                            \"strokeWeight\": 1.0,\n                           
+    \"strokeAlign\": \"OUTSIDE\",\n                            \"absoluteBoundingBox\":
+    {\n                              \"x\": 2014.0,\n                             
+    \"y\": 411.0,\n                              \"width\": 57.0,\n                             
+    \"height\": 30.0\n                            },\n                           
+    \"absoluteRenderBounds\": {\n                              \"x\": 2015.2320556640625,\n                             
+    \"y\": 415.42001342773438,\n                              \"width\": 57.1248779296875,\n                             
+    \"height\": 20.720001220703125\n                            },\n                           
+    \"constraints\": {\n                              \"vertical\": \"TOP\",\n                             
+    \"horizontal\": \"LEFT\"\n                            },\n                           
+    \"layoutAlign\": \"INHERIT\",\n                            \"layoutGrow\": 0.0,\n                           
+    \"layoutSizingHorizontal\": \"HUG\",\n                            \"layoutSizingVertical\":
+    \"HUG\",\n                            \"characters\": \"5000\",\n                           
+    \"characterStyleOverrides\": [],\n                            \"styleOverrideTable\":
+    {},\n                            \"lineTypes\": [\"NONE\"],\n                           
+    \"lineIndentations\": [0],\n                            \"style\": {\n                             
+    \"fontFamily\": \"Bangers\",\n                              \"fontPostScriptName\":
+    \"Bangers-Regular\",\n                              \"fontStyle\": \"Regular\",\n                             
+    \"fontWeight\": 400,\n                              \"textAutoResize\": \"WIDTH_AND_HEIGHT\",\n                             
+    \"fontSize\": 28.0,\n                              \"textAlignHorizontal\": \"LEFT\",\n                             
+    \"textAlignVertical\": \"CENTER\",\n                              \"letterSpacing\":
+    1.4000000000000001,\n                              \"lineHeightPx\": 29.791999816894531,\n                             
+    \"lineHeightPercent\": 100.0,\n                              \"lineHeightUnit\":
+    \"INTRINSIC_%\"\n                            },\n                           
+    \"layoutVersion\": 5,\n                            \"effects\": [],\n                           
+    \"interactions\": []\n                          }\n                        ],\n                       
+    \"blendMode\": \"PASS_THROUGH\",\n                        \"clipsContent\": false,\n                       
+    \"background\": [\n                          {\n                            \"blendMode\":
+    \"NORMAL\",\n                            \"type\": \"SOLID\",\n                           
+    \"color\": {\n                              \"r\": 0.40000000596046448,\n                             
+    \"g\": 0.40000000596046448,\n                              \"b\": 0.40000000596046448,\n                             
+    \"a\": 1.0\n                            }\n                          }\n                       
+    ],\n                        \"fills\": [\n                          {\n                           
+    \"blendMode\": \"NORMAL\",\n                            \"type\": \"SOLID\",\n                           
+    \"color\": {\n                              \"r\": 0.40000000596046448,\n                             
+    \"g\": 0.40000000596046448,\n                              \"b\": 0.40000000596046448,\n                             
+    \"a\": 1.0\n                            }\n                          }\n                       
+    ],\n                        \"strokes\": [\n                          {\n                           
+    \"blendMode\": \"NORMAL\",\n                            \"type\": \"SOLID\",\n                           
+    \"color\": { \"r\": 0.0, \"g\": 0.0, \"b\": 0.0, \"a\": 1.0 }\n                         
+    }\n                        ],\n                        \"strokeWeight\": 3.0,\n                       
+    \"strokeAlign\": \"INSIDE\",\n                        \"backgroundColor\": {\n                         
+    \"r\": 0.40000000596046448,\n                          \"g\": 0.40000000596046448,\n                         
+    \"b\": 0.40000000596046448,\n                          \"a\": 1.0\n                       
+    },\n                        \"layoutMode\": \"HORIZONTAL\",\n                       
+    \"counterAxisSizingMode\": \"FIXED\",\n                        \"primaryAxisSizingMode\":
+    \"FIXED\",\n                        \"counterAxisAlignItems\": \"CENTER\",\n                       
+    \"primaryAxisAlignItems\": \"CENTER\",\n                        \"itemSpacing\":
+    8.0,\n                        \"layoutWrap\": \"NO_WRAP\",\n                       
+    \"absoluteBoundingBox\": {\n                          \"x\": 1914.5,\n                         
+    \"y\": 394.0,\n                          \"width\": 220.0,\n                         
+    \"height\": 64.0\n                        },\n                        \"absoluteRenderBounds\":
+    {\n                          \"x\": 1911.5,\n                          \"y\":
+    394.0,\n                          \"width\": 223.0,\n                         
+    \"height\": 67.0\n                        },\n                        \"constraints\":
+    {\n                          \"vertical\": \"TOP\",\n                         
+    \"horizontal\": \"LEFT\"\n                        },\n                       
+    \"layoutAlign\": \"STRETCH\",\n                        \"layoutGrow\": 1.0,\n                       
+    \"layoutSizingHorizontal\": \"FILL\",\n                        \"layoutSizingVertical\":
+    \"FILL\",\n                        \"effects\": [\n                         
+    {\n                            \"type\": \"DROP_SHADOW\",\n                           
+    \"visible\": true,\n                            \"color\": {\n                             
+    \"r\": 0.00076998199801892042,\n                              \"g\": 0.00076998199801892042,\n                             
+    \"b\": 0.00076998199801892042,\n                              \"a\": 1.0\n                           
+    },\n                            \"blendMode\": \"NORMAL\",\n                           
+    \"offset\": { \"x\": -3.0, \"y\": 3.0 },\n                            \"radius\":
+    0.0,\n                            \"showShadowBehindNode\": false\n                         
+    }\n                        ],\n                        \"interactions\": []\n                     
+    }"
+  width: 200
+  height: 100
+  saveToResources: 1
+  spriteName: Frame 403
+  enableDebugLogs: 1
+--- !u!4 &451956636
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 451956634}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1047.2272, y: 297.00388, z: -1.4673786}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -419,37 +602,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &898209433
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 898209434}
-  m_Layer: 0
-  m_Name: ObjectPool
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!4 &898209434
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898209433}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1386064153
 GameObject:
   m_ObjectHideFlags: 0
@@ -598,8 +750,8 @@ MonoBehaviour:
   config:
     figmaToken: figd_iTTZcK3iAUZkefIkiyh2Tk7SXTvgoSOz09Otj2F_
     fileId: UqdI4flYdmwnwKuQ83EJTF
-    nodeId: 1001:15
-    targetCanvas: {fileID: 1386064156}
+    nodeId: 1041:142
+    targetCanvas: {fileID: 0}
     createNewCanvas: 1
     canvasName: FigmaUI_Canvas
     defaultFont: {fileID: 0}
@@ -612,7 +764,7 @@ MonoBehaviour:
     nodeCacheSize: 1000
     enableObjectPooling: 1
     enableDebugLogs: 0
-  figmaUrl: https://www.figma.com/design/q3uY5p0UnEO5EKHdFnGlWy/Maskborn?node-id=1428-7836&m=dev
+  figmaUrl: https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1041-142&m=dev
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -622,4 +774,5 @@ SceneRoots:
   - {fileID: 1433733373}
   - {fileID: 173987858}
   - {fileID: 1386064157}
-  - {fileID: 898209434}
+  - {fileID: 451956636}
+  - {fileID: 409666035}

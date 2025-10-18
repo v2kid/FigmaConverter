@@ -80,7 +80,7 @@ public static class FigmaShapeRenderer
         float cornerRadius = GetCornerRadius(nodeData);
         string fill = FigmaFillHandler.GenerateSVGFill(nodeData);
         string stroke = FigmaStrokeHandler.GenerateSVGStroke(nodeData);
-        
+
         string defs = string.Empty;
         string filterAttr = string.Empty;
 
@@ -123,7 +123,7 @@ public static class FigmaShapeRenderer
     {
         float rx = width * 0.5f;
         float ry = height * 0.5f;
-        
+
         if (cx == 0)
             cx = rx;
         if (cy == 0)
@@ -131,7 +131,7 @@ public static class FigmaShapeRenderer
 
         string fill = FigmaFillHandler.GenerateSVGFill(nodeData);
         string stroke = FigmaStrokeHandler.GenerateSVGStroke(nodeData);
-        
+
         string defs = string.Empty;
         string filterAttr = string.Empty;
 
@@ -163,7 +163,7 @@ public static class FigmaShapeRenderer
     private static float GetCornerRadius(JObject nodeData)
     {
         float cornerRadius = nodeData["cornerRadius"]?.ToObject<float>() ?? 0f;
-        
+
         JArray rectangleCornerRadii = nodeData["rectangleCornerRadii"] as JArray;
         if (rectangleCornerRadii != null && rectangleCornerRadii.Count > 0)
         {
