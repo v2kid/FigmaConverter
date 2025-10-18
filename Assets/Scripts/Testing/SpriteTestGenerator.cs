@@ -86,7 +86,7 @@ public class SpriteTestGenerator : MonoBehaviour
             }
 
             // Generate sprite
-            Sprite sprite = DirectSpriteGenerator.GenerateSpriteFromNodeDirect(
+            Sprite sprite = SpriteGenerator.GenerateSpriteFromNodeDirect(
                 nodeData,
                 actualWidth,
                 actualHeight

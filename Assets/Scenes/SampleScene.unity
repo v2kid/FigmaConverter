@@ -419,6 +419,107 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &926485050
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 926485054}
+  - component: {fileID: 926485053}
+  - component: {fileID: 926485052}
+  - component: {fileID: 926485051}
+  m_Layer: 0
+  m_Name: FigmaUI_Canvas
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &926485051
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 926485050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_IgnoreReversedGraphics: 1
+  m_BlockingObjects: 0
+  m_BlockingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!114 &926485052
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 926485050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_UiScaleMode: 1
+  m_ReferencePixelsPerUnit: 100
+  m_ScaleFactor: 1
+  m_ReferenceResolution: {x: 1920, y: 1080}
+  m_ScreenMatchMode: 0
+  m_MatchWidthOrHeight: 0.5
+  m_PhysicalUnit: 3
+  m_FallbackScreenDPI: 96
+  m_DefaultSpriteDPI: 96
+  m_DynamicPixelsPerUnit: 1
+  m_PresetInfoIsWorld: 0
+--- !u!223 &926485053
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 926485050}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 0
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 25
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 0
+  m_TargetDisplay: 0
+--- !u!224 &926485054
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 926485050}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0, y: 0, z: 0}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0, y: 0}
 --- !u!1 &1433733370
 GameObject:
   m_ObjectHideFlags: 0
@@ -429,6 +530,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1433733373}
   - component: {fileID: 1433733374}
+  - component: {fileID: 1433733375}
   m_Layer: 0
   m_Name: FigmaDownloader
   m_TagString: Untagged
@@ -465,9 +567,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   config:
     figmaToken: figd_iTTZcK3iAUZkefIkiyh2Tk7SXTvgoSOz09Otj2F_
-    fileId: q3uY5p0UnEO5EKHdFnGlWy
-    nodeId: 1626:8451
-    targetCanvas: {fileID: 0}
+    fileId: UqdI4flYdmwnwKuQ83EJTF
+    nodeId: 1041:142
+    targetCanvas: {fileID: 926485053}
     createNewCanvas: 1
     canvasName: FigmaUI_Canvas
     defaultFont: {fileID: 0}
@@ -480,7 +582,63 @@ MonoBehaviour:
     nodeCacheSize: 1000
     enableObjectPooling: 0
     enableDebugLogs: 1
-  figmaUrl: https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1001-15&m=dev
+  figmaUrl: https://www.figma.com/design/UqdI4flYdmwnwKuQ83EJTF/Untitled?node-id=1041-142&m=dev
+--- !u!114 &1433733375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1433733370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e920f180e626d41e3b3e6454316fa09d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jsonInput: " {\n        \"id\": \"1041:142\",\n        \"name\": \"Frame 367\",\n       
+    \"type\": \"FRAME\",\n        \"scrollBehavior\": \"SCROLLS\",\n        \"blendMode\":
+    \"PASS_THROUGH\",\n        \"clipsContent\": true,\n        \"background\": [\n         
+    {\n            \"blendMode\": \"NORMAL\",\n            \"type\": \"SOLID\",\n           
+    \"color\": {\n              \"r\": 0.33333334326744080,\n              \"g\":
+    0.33333334326744080,\n              \"b\": 0.33333334326744080,\n             
+    \"a\": 1.0\n            }\n          }\n        ],\n        \"fills\": [\n         
+    {\n            \"blendMode\": \"NORMAL\",\n            \"type\": \"SOLID\",\n           
+    \"color\": {\n              \"r\": 0.33333334326744080,\n              \"g\":
+    0.33333334326744080,\n              \"b\": 0.33333334326744080,\n             
+    \"a\": 1.0\n            }\n          }\n        ],\n        \"strokes\": [\n         
+    {\n            \"blendMode\": \"NORMAL\",\n            \"type\": \"SOLID\",\n           
+    \"color\": {\n              \"r\": 0.0,\n              \"g\": 0.0,\n             
+    \"b\": 0.0,\n              \"a\": 1.0\n            }\n          }\n        ],\n       
+    \"strokeWeight\": 4.0,\n        \"strokeAlign\": \"INSIDE\",\n        \"devStatus\":
+    {\n          \"type\": \"READY_FOR_DEV\",\n          \"description\": \"\"\n       
+    },\n        \"backgroundColor\": {\n          \"r\": 0.33333334326744080,\n         
+    \"g\": 0.33333334326744080,\n          \"b\": 0.33333334326744080,\n         
+    \"a\": 1.0\n        },\n        \"layoutMode\": \"VERTICAL\",\n        \"counterAxisSizingMode\":
+    \"FIXED\",\n        \"counterAxisAlignItems\": \"CENTER\",\n        \"primaryAxisAlignItems\":
+    \"CENTER\",\n        \"paddingLeft\": 32.0,\n        \"paddingRight\": 32.0,\n       
+    \"paddingTop\": 32.0,\n        \"paddingBottom\": 32.0,\n        \"itemSpacing\":
+    16.0,\n        \"layoutWrap\": \"NO_WRAP\",\n        \"absoluteBoundingBox\":
+    {\n          \"x\": 1627.0,\n          \"y\": -217.0,\n          \"width\": 795.0,\n         
+    \"height\": 823.0\n        },\n        \"absoluteRenderBounds\": {\n         
+    \"x\": 1623.0,\n          \"y\": -217.0,\n          \"width\": 799.0,\n         
+    \"height\": 827.0\n        },\n        \"constraints\": {\n          \"vertical\":
+    \"TOP\",\n          \"horizontal\": \"LEFT\"\n        },\n        \"layoutSizingHorizontal\":
+    \"FIXED\",\n        \"layoutSizingVertical\": \"HUG\",\n        \"exportSettings\":
+    [\n          {\n            \"suffix\": \"\",\n            \"format\": \"PNG\",\n           
+    \"constraint\": {\n              \"type\": \"SCALE\",\n              \"value\":
+    1.0\n            }\n          }\n        ],\n        \"effects\": [\n         
+    {\n            \"type\": \"DROP_SHADOW\",\n            \"visible\": true,\n           
+    \"color\": {\n              \"r\": 0.00076998199801892042,\n              \"g\":
+    0.00076998199801892042,\n              \"b\": 0.00076998199801892042,\n             
+    \"a\": 1.0\n            },\n            \"blendMode\": \"NORMAL\",\n           
+    \"offset\": {\n              \"x\": -4.0,\n              \"y\": 4.0\n           
+    },\n            \"radius\": 0.0,\n            \"showShadowBehindNode\": false\n         
+    }\n        ],\n        \"interactions\": []\n      }"
+  width: 200
+  height: 100
+  saveToResources: 1
+  spriteName: Frame 367
+  enableDebugLogs: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -489,3 +647,4 @@ SceneRoots:
   - {fileID: 619394802}
   - {fileID: 1433733373}
   - {fileID: 173987858}
+  - {fileID: 926485054}

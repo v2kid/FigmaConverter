@@ -320,13 +320,8 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
             Debug.LogError("No node data available for image download");
             yield break;
         }
-
-        // First, download image fills using FigmaApi
         yield return DownloadImageFills();
-
-        // Then download regular images and icon frames
         List<string> imageNodeIds = new List<string>();
-        CollectImageNodeIds(_currentNodeData, imageNodeIds);
         CollectIconFrameIds(_currentNodeData, imageNodeIds);
 
         if (imageNodeIds.Count == 0)
@@ -404,7 +399,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
         }
 
         // Convert to DirectSpriteGenerator format and store in cache
-        var imageData = DirectSpriteGenerator.ConvertFigmaImageData(figmaImageData);
+        var imageData = SpriteGenerator.ConvertFigmaImageData(figmaImageData);
         StoreImageFillsInCache(imageData);
 
         if (config.enableDebugLogs)
@@ -521,7 +516,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
             if (
                 !string.IsNullOrEmpty(nodeName)
                 && !string.IsNullOrEmpty(nodeId)
-                && nodeName.StartsWith(Constant.IMAGE_PREFIX)
+                // && nodeName.StartsWith(Constant.IMAGE_PREFIX)
                 && !imageNodeIds.Contains(nodeId)
             )
             {
@@ -765,7 +760,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
         }
 
         // Use DirectSpriteGenerator to generate sprite from Resources or create new one
-        yield return DirectSpriteGenerator.GenerateSpriteFromResourcesOrCreateAsync(
+        yield return SpriteGenerator.GenerateSpriteFromResourcesOrCreateAsync(
             nodeData,
             width,
             height,
