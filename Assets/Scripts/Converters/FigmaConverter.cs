@@ -764,8 +764,8 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
             Debug.Log($"Image data available: {imageData?.Count ?? 0} entries");
         }
 
-        // Use DirectSpriteGenerator to generate sprite
-        yield return DirectSpriteGenerator.GenerateSpriteFromNodeDirectAsync(
+        // Use DirectSpriteGenerator to generate sprite from Resources or create new one
+        yield return DirectSpriteGenerator.GenerateSpriteFromResourcesOrCreateAsync(
             nodeData,
             width,
             height,
@@ -777,7 +777,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
                     imageComponent.sprite = sprite;
                     if (config.enableDebugLogs)
                         Debug.Log(
-                            $"✓ Generated sprite for {nodeName}: {sprite.name} ({sprite.rect.width}x{sprite.rect.height})"
+                            $"✓ Generated/loaded sprite for {nodeName}: {sprite.name} ({sprite.rect.width}x{sprite.rect.height})"
                         );
                 }
                 else
@@ -785,7 +785,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
                     if (sprite == null)
                     {
                         Debug.LogError(
-                            $"Failed to generate sprite for {nodeName} - sprite is null"
+                            $"Failed to generate/load sprite for {nodeName} - sprite is null"
                         );
                     }
                     if (imageComponent == null)
@@ -808,7 +808,8 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
                         }
                     }
                 }
-            }
+            },
+            config.nodeId // Pass main nodeId for Resources lookup
         );
     }
 
