@@ -1,4 +1,7 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Net;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
@@ -7,10 +10,19 @@ public class DirectSpriteGenerator
     private const int DEFAULT_TEXTURE_SIZE = 512;
     private const float PIXELS_PER_UNIT = 100f;
 
+    // Cache for downloaded images
+    private static Dictionary<string, Texture2D> _downloadedImageCache =
+        new Dictionary<string, Texture2D>();
+
     /// <summary>
     /// Generates sprite directly from Figma node without SVG intermediate
     /// </summary>
-    public static Sprite GenerateSpriteFromNodeDirect(JObject nodeData, float width, float height)
+    public static Sprite GenerateSpriteFromNodeDirect(
+        JObject nodeData,
+        float width,
+        float height,
+        Dictionary<string, string> imageData = null
+    )
     {
         try
         {
@@ -77,7 +89,8 @@ public class DirectSpriteGenerator
                         width,
                         height,
                         offsetX,
-                        offsetY
+                        offsetY,
+                        imageData
                     );
                     break;
 
@@ -90,7 +103,8 @@ public class DirectSpriteGenerator
                         width,
                         height,
                         offsetX,
-                        offsetY
+                        offsetY,
+                        imageData
                     );
                     break;
 
@@ -103,7 +117,8 @@ public class DirectSpriteGenerator
                         width,
                         height,
                         offsetX,
-                        offsetY
+                        offsetY,
+                        imageData
                     );
                     break;
             }
@@ -139,6 +154,68 @@ public class DirectSpriteGenerator
             Debug.LogError($"Error generating sprite directly: {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Generates sprite directly from Figma node with async image download support
+    /// </summary>
+    public static IEnumerator GenerateSpriteFromNodeDirectAsync(
+        JObject nodeData,
+        float width,
+        float height,
+        Dictionary<string, string> imageData,
+        System.Action<Sprite> onComplete
+    )
+    {
+        // Check if node has image fills that need async download
+        if (HasImageFill(nodeData))
+        {
+            JObject imageFill = GetImageFill(nodeData);
+            if (imageFill != null)
+            {
+                string imageUrl = imageFill["imageUrl"]?.ToString();
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    // Download image asynchronously
+                    yield return DownloadImageFromUrlAsync(
+                        imageUrl,
+                        (downloadedTexture) =>
+                        {
+                            if (downloadedTexture != null)
+                            {
+                                // Generate sprite with downloaded image
+                                Sprite sprite = GenerateSpriteFromNodeDirect(
+                                    nodeData,
+                                    width,
+                                    height,
+                                    imageData
+                                );
+                                onComplete?.Invoke(sprite);
+                            }
+                            else
+                            {
+                                Debug.LogError(
+                                    "Failed to download image, generating sprite without image fill"
+                                );
+                                // Generate sprite without image fill
+                                Sprite sprite = GenerateSpriteFromNodeDirect(
+                                    nodeData,
+                                    width,
+                                    height,
+                                    imageData
+                                );
+                                onComplete?.Invoke(sprite);
+                            }
+                        }
+                    );
+                    yield break;
+                }
+            }
+        }
+
+        // No async download needed, generate sprite normally
+        Sprite normalSprite = GenerateSpriteFromNodeDirect(nodeData, width, height, imageData);
+        onComplete?.Invoke(normalSprite);
     }
 
     /// <summary>
@@ -194,11 +271,6 @@ public class DirectSpriteGenerator
 
         return new Vector4(left, right, bottom, top);
     }
-
-    /// <summary>
-    /// Calculates total padding needed for effects (for backward compatibility)
-    /// </summary>
- 
 
     /// <summary>
     /// Calculates the actual content bounds of the sprite (excluding padding)
@@ -347,6 +419,34 @@ public class DirectSpriteGenerator
     /// <summary>
     /// Creates mask for rectangle shapes
     /// </summary>
+    private static bool[] CreateRectangleMask(JObject nodeData, int width, int height)
+    {
+        bool[] mask = new bool[width * height];
+        float cornerRadius = nodeData["cornerRadius"]?.ToObject<float>() ?? 0f;
+        bool hasCornerRadius = cornerRadius > 0;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                bool insideShape = true;
+
+                if (hasCornerRadius)
+                {
+                    insideShape = IsInsideRoundedRect(x, y, width, height, cornerRadius);
+                }
+
+                int index = y * width + x;
+                mask[index] = insideShape;
+            }
+        }
+
+        return mask;
+    }
+
+    /// <summary>
+    /// Creates mask for rectangle shapes (legacy method for shadow mask)
+    /// </summary>
     private static void CreateRectangleMask(JObject nodeData, bool[] mask, int width, int height)
     {
         float cornerRadius = nodeData["cornerRadius"]?.ToObject<float>() ?? 0f;
@@ -371,6 +471,33 @@ public class DirectSpriteGenerator
 
     /// <summary>
     /// Creates mask for ellipse shapes
+    /// </summary>
+    private static bool[] CreateEllipseMask(JObject nodeData, int width, int height)
+    {
+        bool[] mask = new bool[width * height];
+        float centerX = width * 0.5f;
+        float centerY = height * 0.5f;
+        float radiusX = width * 0.5f;
+        float radiusY = height * 0.5f;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float dx = (x - centerX) / radiusX;
+                float dy = (y - centerY) / radiusY;
+                float distance = dx * dx + dy * dy;
+
+                int index = y * width + x;
+                mask[index] = distance <= 1.0f;
+            }
+        }
+
+        return mask;
+    }
+
+    /// <summary>
+    /// Creates mask for ellipse shapes (legacy method for shadow mask)
     /// </summary>
     private static void CreateEllipseMask(JObject nodeData, bool[] mask, int width, int height)
     {
@@ -480,48 +607,76 @@ public class DirectSpriteGenerator
         float nodeWidth,
         float nodeHeight,
         int offsetX,
-        int offsetY
+        int offsetY,
+        Dictionary<string, string> imageData = null
     )
     {
-        // Get fill color
-        Color fillColor = GetFillColor(nodeData);
-
-        // Get corner radius
-        float cornerRadius = nodeData["cornerRadius"]?.ToObject<float>() ?? 0f;
-        bool hasCornerRadius = cornerRadius > 0;
-
-        // Fill the shape
-        for (int y = 0; y < textureHeight; y++)
+        // Check if node has image fills
+        if (HasImageFill(nodeData))
         {
-            for (int x = 0; x < textureWidth; x++)
+            // Create shape mask for image fill
+            bool[] shapeMask = CreateRectangleMask(nodeData, (int)nodeWidth, (int)nodeHeight);
+
+            // Get image fill and render it
+            JObject imageFill = GetImageFill(nodeData);
+            if (imageFill != null)
             {
-                // Check if pixel is within the shape bounds (with offset)
-                if (
-                    x < offsetX
-                    || x >= offsetX + nodeWidth
-                    || y < offsetY
-                    || y >= offsetY + nodeHeight
-                )
-                    continue;
+                RenderImageFill(
+                    imageFill,
+                    pixels,
+                    textureWidth,
+                    textureHeight,
+                    nodeWidth,
+                    nodeHeight,
+                    offsetX,
+                    offsetY,
+                    imageData,
+                    shapeMask
+                );
+            }
+        }
+        else
+        {
+            // Get fill color for solid fill
+            Color fillColor = GetFillColor(nodeData);
 
-                bool insideShape = true;
+            // Get corner radius
+            float cornerRadius = nodeData["cornerRadius"]?.ToObject<float>() ?? 0f;
+            bool hasCornerRadius = cornerRadius > 0;
 
-                if (hasCornerRadius)
+            // Fill the shape
+            for (int y = 0; y < textureHeight; y++)
+            {
+                for (int x = 0; x < textureWidth; x++)
                 {
-                    // Check if pixel is inside rounded rectangle (relative to shape bounds)
-                    insideShape = IsInsideRoundedRect(
-                        x - offsetX,
-                        y - offsetY,
-                        (int)nodeWidth,
-                        (int)nodeHeight,
-                        cornerRadius
-                    );
-                }
+                    // Check if pixel is within the shape bounds (with offset)
+                    if (
+                        x < offsetX
+                        || x >= offsetX + nodeWidth
+                        || y < offsetY
+                        || y >= offsetY + nodeHeight
+                    )
+                        continue;
 
-                if (insideShape)
-                {
-                    int index = y * textureWidth + x;
-                    pixels[index] = fillColor;
+                    bool insideShape = true;
+
+                    if (hasCornerRadius)
+                    {
+                        // Check if pixel is inside rounded rectangle (relative to shape bounds)
+                        insideShape = IsInsideRoundedRect(
+                            x - offsetX,
+                            y - offsetY,
+                            (int)nodeWidth,
+                            (int)nodeHeight,
+                            cornerRadius
+                        );
+                    }
+
+                    if (insideShape)
+                    {
+                        int index = y * textureWidth + x;
+                        pixels[index] = fillColor;
+                    }
                 }
             }
         }
@@ -550,28 +705,57 @@ public class DirectSpriteGenerator
         float nodeWidth,
         float nodeHeight,
         int offsetX,
-        int offsetY
+        int offsetY,
+        Dictionary<string, string> imageData = null
     )
     {
-        Color fillColor = GetFillColor(nodeData);
-
-        float centerX = offsetX + nodeWidth * 0.5f;
-        float centerY = offsetY + nodeHeight * 0.5f;
-        float radiusX = nodeWidth * 0.5f;
-        float radiusY = nodeHeight * 0.5f;
-
-        for (int y = 0; y < textureHeight; y++)
+        // Check if node has image fills
+        if (HasImageFill(nodeData))
         {
-            for (int x = 0; x < textureWidth; x++)
-            {
-                float dx = (x - centerX) / radiusX;
-                float dy = (y - centerY) / radiusY;
-                float distance = dx * dx + dy * dy;
+            // Create shape mask for image fill
+            bool[] shapeMask = CreateEllipseMask(nodeData, (int)nodeWidth, (int)nodeHeight);
 
-                if (distance <= 1.0f)
+            // Get image fill and render it
+            JObject imageFill = GetImageFill(nodeData);
+            if (imageFill != null)
+            {
+                RenderImageFill(
+                    imageFill,
+                    pixels,
+                    textureWidth,
+                    textureHeight,
+                    nodeWidth,
+                    nodeHeight,
+                    offsetX,
+                    offsetY,
+                    imageData,
+                    shapeMask
+                );
+            }
+        }
+        else
+        {
+            // Get fill color for solid fill
+            Color fillColor = GetFillColor(nodeData);
+
+            float centerX = offsetX + nodeWidth * 0.5f;
+            float centerY = offsetY + nodeHeight * 0.5f;
+            float radiusX = nodeWidth * 0.5f;
+            float radiusY = nodeHeight * 0.5f;
+
+            for (int y = 0; y < textureHeight; y++)
+            {
+                for (int x = 0; x < textureWidth; x++)
                 {
-                    int index = y * textureWidth + x;
-                    pixels[index] = fillColor;
+                    float dx = (x - centerX) / radiusX;
+                    float dy = (y - centerY) / radiusY;
+                    float distance = dx * dx + dy * dy;
+
+                    if (distance <= 1.0f)
+                    {
+                        int index = y * textureWidth + x;
+                        pixels[index] = fillColor;
+                    }
                 }
             }
         }
@@ -625,6 +809,413 @@ public class DirectSpriteGenerator
 
         // Not in corner region, so inside the rectangle
         return true;
+    }
+
+    /// <summary>
+    /// Checks if the node has image fills
+    /// </summary>
+    private static bool HasImageFill(JObject nodeData)
+    {
+        JArray fills = nodeData["fills"] as JArray;
+        if (fills != null && fills.Count > 0)
+        {
+            foreach (JObject fill in fills)
+            {
+                bool visible = fill["visible"]?.ToObject<bool>() ?? true;
+                if (visible)
+                {
+                    string fillType = fill["type"]?.ToString();
+                    if (fillType == "IMAGE")
+                    {
+                        Debug.Log($"Node has image fill: {fill["imageRef"]?.ToString()}");
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Gets the first image fill from Figma node data
+    /// </summary>
+    private static JObject GetImageFill(JObject nodeData)
+    {
+        JArray fills = nodeData["fills"] as JArray;
+        if (fills != null && fills.Count > 0)
+        {
+            foreach (JObject fill in fills)
+            {
+                bool visible = fill["visible"]?.ToObject<bool>() ?? true;
+                if (visible)
+                {
+                    string fillType = fill["type"]?.ToString();
+                    if (fillType == "IMAGE")
+                    {
+                        return fill;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Loads image texture from base64 data
+    /// </summary>
+    private static Texture2D LoadImageFromBase64(string base64Data)
+    {
+        try
+        {
+            byte[] imageData = Convert.FromBase64String(base64Data);
+            Texture2D texture = new Texture2D(1, 1);
+            texture.LoadImage(imageData, true);
+            return texture;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error loading image from base64: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Downloads image from URL and returns as Texture2D
+    /// </summary>
+    public static Texture2D DownloadImageFromUrl(string imageUrl)
+    {
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            Debug.LogWarning("Image URL is null or empty");
+            return null;
+        }
+
+        // Check cache first
+        if (_downloadedImageCache.TryGetValue(imageUrl, out Texture2D cachedTexture))
+        {
+            return cachedTexture;
+        }
+
+        try
+        {
+            using (WebClient client = new WebClient())
+            {
+                byte[] imageData = client.DownloadData(imageUrl);
+                Texture2D texture = new Texture2D(1, 1);
+                texture.LoadImage(imageData, true);
+
+                // Cache the downloaded image
+                _downloadedImageCache[imageUrl] = texture;
+
+                Debug.Log($"Successfully downloaded image from: {imageUrl}");
+                return texture;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error downloading image from URL {imageUrl}: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Downloads image from URL asynchronously using coroutine
+    /// </summary>
+    public static IEnumerator DownloadImageFromUrlAsync(
+        string imageUrl,
+        System.Action<Texture2D> onComplete
+    )
+    {
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            Debug.LogWarning("Image URL is null or empty");
+            onComplete?.Invoke(null);
+            yield break;
+        }
+
+        // Check cache first
+        if (_downloadedImageCache.TryGetValue(imageUrl, out Texture2D cachedTexture))
+        {
+            onComplete?.Invoke(cachedTexture);
+            yield break;
+        }
+
+        using (
+            UnityEngine.Networking.UnityWebRequest request =
+                UnityEngine.Networking.UnityWebRequestTexture.GetTexture(imageUrl)
+        )
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+            {
+                Texture2D texture = UnityEngine.Networking.DownloadHandlerTexture.GetContent(
+                    request
+                );
+
+                // Cache the downloaded image
+                _downloadedImageCache[imageUrl] = texture;
+
+                Debug.Log($"Successfully downloaded image from: {imageUrl}");
+                onComplete?.Invoke(texture);
+            }
+            else
+            {
+                Debug.LogError($"Error downloading image from URL {imageUrl}: {request.error}");
+                onComplete?.Invoke(null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Clears the downloaded image cache
+    /// </summary>
+    public static void ClearImageCache()
+    {
+        foreach (var texture in _downloadedImageCache.Values)
+        {
+            if (texture != null)
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+        _downloadedImageCache.Clear();
+        Debug.Log("Image cache cleared");
+    }
+
+    /// <summary>
+    /// Converts byte array to base64 string for DirectSpriteGenerator
+    /// </summary>
+    public static string ConvertImageDataToBase64(byte[] imageData)
+    {
+        if (imageData == null || imageData.Length == 0)
+            return null;
+
+        return Convert.ToBase64String(imageData);
+    }
+
+    /// <summary>
+    /// Converts FigmaApi image data dictionary to DirectSpriteGenerator format
+    /// </summary>
+    public static Dictionary<string, string> ConvertFigmaImageData(
+        Dictionary<string, byte[]> figmaImageData
+    )
+    {
+        if (figmaImageData == null)
+            return null;
+
+        var convertedData = new Dictionary<string, string>();
+        foreach (var kvp in figmaImageData)
+        {
+            if (kvp.Value != null)
+            {
+                convertedData[kvp.Key] = ConvertImageDataToBase64(kvp.Value);
+            }
+        }
+        return convertedData;
+    }
+
+    /// <summary>
+    /// Renders image fill to pixels with proper scaling and positioning
+    /// </summary>
+    private static void RenderImageFill(
+        JObject imageFill,
+        Color[] pixels,
+        int textureWidth,
+        int textureHeight,
+        float nodeWidth,
+        float nodeHeight,
+        int offsetX,
+        int offsetY,
+        Dictionary<string, string> imageData,
+        bool[] shapeMask = null
+    )
+    {
+        // Get image data from fill
+        string imageRef = imageFill["imageRef"]?.ToString();
+
+        if (string.IsNullOrEmpty(imageRef))
+        {
+            Debug.LogWarning("Image fill missing both imageRef and imageUrl");
+            return;
+        }
+
+        Texture2D imageTexture = null;
+
+        if (
+            !string.IsNullOrEmpty(imageRef)
+            && imageData != null
+            && imageData.TryGetValue(imageRef, out string base64Data)
+        )
+        {
+            imageTexture = LoadImageFromBase64(base64Data);
+        }
+        else
+        {
+            Debug.LogWarning($"Image data not found for ref: {imageRef} and no URL provided");
+            return;
+        }
+
+        // Get fill properties
+        float opacity = imageFill["opacity"]?.ToObject<float>() ?? 1f;
+        string scaleMode = imageFill["scaleMode"]?.ToString() ?? "FILL";
+
+        // Get image transform properties
+        JObject imageTransform = imageFill["imageTransform"] as JObject;
+        float scaleX = imageTransform?["scaleX"]?.ToObject<float>() ?? 1f;
+        float scaleY = imageTransform?["scaleY"]?.ToObject<float>() ?? 1f;
+        float rotation = imageTransform?["rotation"]?.ToObject<float>() ?? 0f;
+        float translationX = imageTransform?["translationX"]?.ToObject<float>() ?? 0f;
+        float translationY = imageTransform?["translationY"]?.ToObject<float>() ?? 0f;
+
+        // Render image to pixels
+        RenderImageToPixels(
+            imageTexture,
+            pixels,
+            textureWidth,
+            textureHeight,
+            nodeWidth,
+            nodeHeight,
+            offsetX,
+            offsetY,
+            scaleMode,
+            scaleX,
+            scaleY,
+            rotation,
+            translationX,
+            translationY,
+            opacity,
+            shapeMask
+        );
+
+        // Don't destroy cached textures, only destroy if it's not in cache
+        if (!_downloadedImageCache.ContainsValue(imageTexture))
+        {
+            UnityEngine.Object.DestroyImmediate(imageTexture);
+        }
+    }
+
+    /// <summary>
+    /// Renders image texture to pixel array with scaling and positioning
+    /// </summary>
+    private static void RenderImageToPixels(
+        Texture2D imageTexture,
+        Color[] pixels,
+        int textureWidth,
+        int textureHeight,
+        float nodeWidth,
+        float nodeHeight,
+        int offsetX,
+        int offsetY,
+        string scaleMode,
+        float scaleX,
+        float scaleY,
+        float rotation,
+        float translationX,
+        float translationY,
+        float opacity,
+        bool[] shapeMask
+    )
+    {
+        Color[] imagePixels = imageTexture.GetPixels();
+        int imageWidth = imageTexture.width;
+        int imageHeight = imageTexture.height;
+
+        // Calculate scaling based on scale mode
+        float finalScaleX = scaleX;
+        float finalScaleY = scaleY;
+
+        switch (scaleMode)
+        {
+            case "FILL":
+                // Scale to fill the entire node
+                finalScaleX = nodeWidth / imageWidth;
+                finalScaleY = nodeHeight / imageHeight;
+                break;
+            case "FIT":
+                // Scale to fit within the node (maintain aspect ratio)
+                float scale = Mathf.Min(nodeWidth / imageWidth, nodeHeight / imageHeight);
+                finalScaleX = finalScaleY = scale;
+                break;
+            case "CROP":
+                // Scale to fill and crop if necessary
+                float cropScale = Mathf.Max(nodeWidth / imageWidth, nodeHeight / imageHeight);
+                finalScaleX = finalScaleY = cropScale;
+                break;
+            case "TILE":
+                // Tile the image
+                finalScaleX = finalScaleY = 1f;
+                break;
+        }
+
+        // Render image pixels
+        for (int y = 0; y < textureHeight; y++)
+        {
+            for (int x = 0; x < textureWidth; x++)
+            {
+                // Check if pixel is within node bounds
+                if (
+                    x < offsetX
+                    || x >= offsetX + nodeWidth
+                    || y < offsetY
+                    || y >= offsetY + nodeHeight
+                )
+                    continue;
+
+                // Check shape mask if provided
+                int shapeIndex = (y - offsetY) * (int)nodeWidth + (x - offsetX);
+                if (shapeMask != null && shapeIndex < shapeMask.Length && !shapeMask[shapeIndex])
+                    continue;
+
+                // Calculate image coordinates
+                float localX = (x - offsetX) - nodeWidth * 0.5f;
+                float localY = (y - offsetY) - nodeHeight * 0.5f;
+
+                // Apply rotation
+                if (rotation != 0)
+                {
+                    float cos = Mathf.Cos(rotation * Mathf.Deg2Rad);
+                    float sin = Mathf.Sin(rotation * Mathf.Deg2Rad);
+                    float rotatedX = localX * cos - localY * sin;
+                    float rotatedY = localX * sin + localY * cos;
+                    localX = rotatedX;
+                    localY = rotatedY;
+                }
+
+                // Apply translation
+                localX += translationX;
+                localY += translationY;
+
+                // Apply scaling
+                float imageX = (localX / finalScaleX) + imageWidth * 0.5f;
+                float imageY = (localY / finalScaleY) + imageHeight * 0.5f;
+
+                // Handle tiling
+                if (scaleMode == "TILE")
+                {
+                    imageX = ((x - offsetX) % imageWidth + imageWidth) % imageWidth;
+                    imageY = ((y - offsetY) % imageHeight + imageHeight) % imageHeight;
+                }
+
+                // Sample image pixel
+                if (imageX >= 0 && imageX < imageWidth && imageY >= 0 && imageY < imageHeight)
+                {
+                    int imagePixelX = Mathf.FloorToInt(imageX);
+                    int imagePixelY = Mathf.FloorToInt(imageY);
+                    int imageIndex = imagePixelY * imageWidth + imagePixelX;
+
+                    if (imageIndex >= 0 && imageIndex < imagePixels.Length)
+                    {
+                        Color imageColor = imagePixels[imageIndex];
+                        imageColor.a *= opacity;
+
+                        int pixelIndex = y * textureWidth + x;
+                        Color existingColor = pixels[pixelIndex];
+                        pixels[pixelIndex] = Color.Lerp(existingColor, imageColor, imageColor.a);
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>

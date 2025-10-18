@@ -5,25 +5,9 @@ using System.Collections;
 /// </summary>
 public interface IFigmaNodeConverter
 {
-    /// <summary>
-    /// Convert the assigned Figma node to UI elements
-    /// </summary>
+  
     void ConvertNodeToUI();
-
-    /// <summary>
-    /// Validate the converter setup and configuration
-    /// </summary>
-    void ValidateSetup();
-
-    /// <summary>
-    /// Clear any created UI elements
-    /// </summary>
-    void ClearCreatedUI();
-
-    /// <summary>
-    /// List all available nodes in the data asset
-    /// </summary>
-    void ListAvailableNodes();
+  
 
     void GeneratePrefab();
 }
