@@ -69,11 +69,27 @@ public class SpriteTestGenerator : MonoBehaviour
                 Debug.Log($"Node: {nodeData["name"]} (Type: {nodeData["type"]})");
             }
 
+            // Extract dimensions from JSON if available
+            float actualWidth = width;
+            float actualHeight = height;
+
+            JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
+            if (boundingBox != null)
+            {
+                actualWidth = boundingBox["width"]?.ToObject<float>() ?? width;
+                actualHeight = boundingBox["height"]?.ToObject<float>() ?? height;
+
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"✓ Extracted dimensions from JSON: {actualWidth}x{actualHeight}");
+                }
+            }
+
             // Generate sprite
             Sprite sprite = DirectSpriteGenerator.GenerateSpriteFromNodeDirect(
                 nodeData,
-                width,
-                height
+                actualWidth,
+                actualHeight
             );
 
             if (sprite == null)
@@ -114,7 +130,7 @@ public class SpriteTestGenerator : MonoBehaviour
             }
 
             // Create a test GameObject to display the sprite
-            CreateTestGameObject(sprite);
+            CreateTestGameObject(sprite, actualWidth, actualHeight);
         }
         catch (Exception ex)
         {
@@ -124,7 +140,7 @@ public class SpriteTestGenerator : MonoBehaviour
         }
     }
 
-    private void CreateTestGameObject(Sprite sprite)
+    private void CreateTestGameObject(Sprite sprite, float spriteWidth, float spriteHeight)
     {
         // Create a test canvas if none exists
         Canvas canvas = FindObjectOfType<Canvas>();
@@ -142,7 +158,7 @@ public class SpriteTestGenerator : MonoBehaviour
         testGO.transform.SetParent(canvas.transform, false);
 
         RectTransform rectTransform = testGO.AddComponent<RectTransform>();
-        rectTransform.sizeDelta = new Vector2(width, height);
+        rectTransform.sizeDelta = new Vector2(spriteWidth, spriteHeight);
         rectTransform.anchoredPosition = Vector2.zero;
 
         Image image = testGO.AddComponent<Image>();
@@ -150,7 +166,7 @@ public class SpriteTestGenerator : MonoBehaviour
         image.preserveAspect = true;
 
         if (enableDebugLogs)
-            Debug.Log($"✓ Created test GameObject: {testGO.name}");
+            Debug.Log($"✓ Created test GameObject: {testGO.name} ({spriteWidth}x{spriteHeight})");
     }
 
     [ContextMenu("Test Rectangle Sprite")]
@@ -397,6 +413,64 @@ public class SpriteTestGenerator : MonoBehaviour
         width = 200f;
         height = 100f;
         spriteName = "TestInnerShadow";
+        GenerateSpriteFromJson();
+    }
+
+    [ContextMenu("Test Real Figma Data")]
+    public void TestRealFigmaData()
+    {
+        jsonInput = @"{
+            ""id"": ""1041:176"",
+            ""name"": ""Frame 403"",
+            ""type"": ""FRAME"",
+            ""blendMode"": ""PASS_THROUGH"",
+            ""fills"": [
+                {
+                    ""blendMode"": ""NORMAL"",
+                    ""type"": ""SOLID"",
+                    ""color"": {
+                        ""r"": 0.4,
+                        ""g"": 0.4,
+                        ""b"": 0.4,
+                        ""a"": 1.0
+                    }
+                }
+            ],
+            ""strokes"": [
+                {
+                    ""blendMode"": ""NORMAL"",
+                    ""type"": ""SOLID"",
+                    ""color"": { ""r"": 0.0, ""g"": 0.0, ""b"": 0.0, ""a"": 1.0 }
+                }
+            ],
+            ""strokeWeight"": 3.0,
+            ""strokeAlign"": ""INSIDE"",
+            ""absoluteBoundingBox"": {
+                ""x"": 1914.5,
+                ""y"": 394.0,
+                ""width"": 220.0,
+                ""height"": 64.0
+            },
+            ""effects"": [
+                {
+                    ""type"": ""DROP_SHADOW"",
+                    ""visible"": true,
+                    ""color"": {
+                        ""r"": 0.00076998199801892042,
+                        ""g"": 0.00076998199801892042,
+                        ""b"": 0.00076998199801892042,
+                        ""a"": 1.0
+                    },
+                    ""blendMode"": ""NORMAL"",
+                    ""offset"": { ""x"": -3.0, ""y"": 3.0 },
+                    ""radius"": 0.0,
+                    ""showShadowBehindNode"": false
+                }
+            ]
+        }";
+        
+        // Don't set width/height - let it extract from JSON
+        spriteName = "Frame403";
         GenerateSpriteFromJson();
     }
 

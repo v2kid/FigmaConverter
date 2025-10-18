@@ -258,24 +258,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e920f180e626d41e3b3e6454316fa09d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  jsonInput: "  {\n                        \"id\": \"1041:176\",\n                       
+  jsonInput: "    {\n                        \"id\": \"1041:170\",\n                       
     \"name\": \"Frame 403\",\n                        \"type\": \"FRAME\",\n                       
     \"scrollBehavior\": \"SCROLLS\",\n                        \"children\": [\n                         
-    {\n                            \"id\": \"1041:177\",\n                           
-    \"name\": \"tag_image_1\",\n                            \"type\": \"RECTANGLE\",\n                           
+    {\n                            \"id\": \"1041:171\",\n                           
+    \"name\": \"tag_image_3\",\n                            \"type\": \"RECTANGLE\",\n                           
     \"scrollBehavior\": \"SCROLLS\",\n                            \"blendMode\":
     \"PASS_THROUGH\",\n                            \"fills\": [\n                             
     {\n                                \"blendMode\": \"NORMAL\",\n                               
     \"type\": \"IMAGE\",\n                                \"scaleMode\": \"FILL\",\n                               
-    \"imageRef\": \"a8810940dfeca1ca6d888f1178fdb1e21ab3cef3\"\n                             
+    \"imageRef\": \"078c4d05126f9945071b970f3a48fc52bd9f1f82\"\n                             
     }\n                            ],\n                            \"strokes\": [],\n                           
     \"strokeWeight\": 1.0,\n                            \"strokeAlign\": \"INSIDE\",\n                           
-    \"absoluteBoundingBox\": {\n                              \"x\": 1978.0,\n                             
-    \"y\": 412.0,\n                              \"width\": 28.0,\n                             
-    \"height\": 28.0\n                            },\n                           
-    \"absoluteRenderBounds\": {\n                              \"x\": 1978.0,\n                             
-    \"y\": 412.0,\n                              \"width\": 28.0,\n                             
-    \"height\": 28.0\n                            },\n                           
+    \"absoluteBoundingBox\": {\n                              \"x\": 1722.5,\n                             
+    \"y\": 410.0,\n                              \"width\": 32.0,\n                             
+    \"height\": 32.0\n                            },\n                           
+    \"absoluteRenderBounds\": {\n                              \"x\": 1722.5,\n                             
+    \"y\": 410.0,\n                              \"width\": 32.0,\n                             
+    \"height\": 32.0\n                            },\n                           
     \"targetAspectRatio\": { \"x\": 256.0, \"y\": 256.0 },\n                           
     \"constraints\": {\n                              \"vertical\": \"TOP\",\n                             
     \"horizontal\": \"LEFT\"\n                            },\n                           
@@ -283,8 +283,8 @@ MonoBehaviour:
     \"layoutSizingHorizontal\": \"FIXED\",\n                            \"layoutSizingVertical\":
     \"FIXED\",\n                            \"effects\": [],\n                           
     \"interactions\": []\n                          },\n                         
-    {\n                            \"id\": \"1041:178\",\n                           
-    \"name\": \"5000\",\n                            \"type\": \"TEXT\",\n                           
+    {\n                            \"id\": \"1041:172\",\n                           
+    \"name\": \"1000\",\n                            \"type\": \"TEXT\",\n                           
     \"scrollBehavior\": \"SCROLLS\",\n                            \"blendMode\":
     \"PASS_THROUGH\",\n                            \"fills\": [\n                             
     {\n                                \"blendMode\": \"NORMAL\",\n                               
@@ -294,17 +294,17 @@ MonoBehaviour:
     }\n                              }\n                            ],\n                           
     \"strokes\": [],\n                            \"strokeWeight\": 1.0,\n                           
     \"strokeAlign\": \"OUTSIDE\",\n                            \"absoluteBoundingBox\":
-    {\n                              \"x\": 2014.0,\n                             
-    \"y\": 411.0,\n                              \"width\": 57.0,\n                             
+    {\n                              \"x\": 1762.5,\n                             
+    \"y\": 411.0,\n                              \"width\": 53.0,\n                             
     \"height\": 30.0\n                            },\n                           
-    \"absoluteRenderBounds\": {\n                              \"x\": 2015.2320556640625,\n                             
-    \"y\": 415.42001342773438,\n                              \"width\": 57.1248779296875,\n                             
-    \"height\": 20.720001220703125\n                            },\n                           
+    \"absoluteRenderBounds\": {\n                              \"x\": 1764.5439453125,\n                             
+    \"y\": 415.42001342773438,\n                              \"width\": 52.3482666015625,\n                             
+    \"height\": 20.552001953125\n                            },\n                           
     \"constraints\": {\n                              \"vertical\": \"TOP\",\n                             
     \"horizontal\": \"LEFT\"\n                            },\n                           
     \"layoutAlign\": \"INHERIT\",\n                            \"layoutGrow\": 0.0,\n                           
     \"layoutSizingHorizontal\": \"HUG\",\n                            \"layoutSizingVertical\":
-    \"HUG\",\n                            \"characters\": \"5000\",\n                           
+    \"HUG\",\n                            \"characters\": \"1000\",\n                           
     \"characterStyleOverrides\": [],\n                            \"styleOverrideTable\":
     {},\n                            \"lineTypes\": [\"NONE\"],\n                           
     \"lineIndentations\": [0],\n                            \"style\": {\n                             
@@ -341,10 +341,10 @@ MonoBehaviour:
     \"FIXED\",\n                        \"counterAxisAlignItems\": \"CENTER\",\n                       
     \"primaryAxisAlignItems\": \"CENTER\",\n                        \"itemSpacing\":
     8.0,\n                        \"layoutWrap\": \"NO_WRAP\",\n                       
-    \"absoluteBoundingBox\": {\n                          \"x\": 1914.5,\n                         
+    \"absoluteBoundingBox\": {\n                          \"x\": 1659.0,\n                         
     \"y\": 394.0,\n                          \"width\": 220.0,\n                         
     \"height\": 64.0\n                        },\n                        \"absoluteRenderBounds\":
-    {\n                          \"x\": 1911.5,\n                          \"y\":
+    {\n                          \"x\": 1656.0,\n                          \"y\":
     394.0,\n                          \"width\": 223.0,\n                         
     \"height\": 67.0\n                        },\n                        \"constraints\":
     {\n                          \"vertical\": \"TOP\",\n                         

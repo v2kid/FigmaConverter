@@ -247,38 +247,5 @@ public static class FigmaVectorHandler
         return false;
     }
 
-    /// <summary>
-    /// Generates sprite from vector node
-    /// </summary>
-    public static Sprite GenerateSpriteFromVector(JObject nodeData, float width, float height)
-    {
-        try
-        {
-            // Check if we have vector data
-            if (!HasVectorData(nodeData))
-            {
-                Debug.LogWarning("No vector data found, falling back to basic shape rendering");
-                return DirectSpriteGenerator.GenerateSpriteFromNodeDirect(nodeData, width, height);
-            }
-
-            // Generate SVG from vector data
-            string svgString = GenerateSVGFromVector(nodeData, width, height);
-
-            if (string.IsNullOrEmpty(svgString))
-            {
-                Debug.LogWarning("Failed to generate SVG from vector");
-                return null;
-            }
-
-            // Convert SVG to sprite
-            Sprite sprite = SVGSpriteConverter.ConvertSVGToSprite(svgString, width, height);
-
-            return sprite;
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Vector sprite generation failed: {ex.Message}");
-            return null;
-        }
-    }
+   
 }
