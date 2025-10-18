@@ -5,10 +5,7 @@ using System.Collections;
 /// </summary>
 public interface IFigmaNodeConverter
 {
-  
     void ConvertNodeToUI();
-  
-
     void GeneratePrefab();
 }
 
