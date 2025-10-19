@@ -15,19 +15,6 @@ public static class ImageRenderer
     private static Dictionary<string, Texture2D> _downloadedImageCache =
         new Dictionary<string, Texture2D>();
 
-    /// <summary>
-    /// Renders an image fill for a shape with full DirectSpriteGenerator compatibility
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="imageData">Image data dictionary</param>
-    /// <param name="mainNodeId">Main node ID for image references</param>
     public static void RenderImageFill(
         JObject nodeData,
         Color[] pixels,
@@ -53,11 +40,8 @@ public static class ImageRenderer
         string imageRef = imageFill["imageRef"]?.ToString();
         string imageUrl = imageFill["imageUrl"]?.ToString();
 
-        Debug.Log($"ImageRenderer.RenderImageFill: imageRef={imageRef}, imageUrl={imageUrl}");
-
         if (string.IsNullOrEmpty(imageRef) && string.IsNullOrEmpty(imageUrl))
         {
-            Debug.LogWarning("ImageRenderer: Image fill missing both imageRef and imageUrl");
             return;
         }
 
@@ -66,9 +50,6 @@ public static class ImageRenderer
         // First, try to load from Resources using imageRef as imageName - like DirectSpriteGenerator
         if (!string.IsNullOrEmpty(imageRef))
         {
-            Debug.Log($"ImageRenderer: Trying to load from Resources using imageRef: {imageRef}");
-
-            // Try to load sprite from Resources first
             Sprite savedSprite = SpriteSaver.LoadSpriteFromResourcesWithMainNodeId(
                 imageRef,
                 imageRef,
@@ -76,7 +57,6 @@ public static class ImageRenderer
             );
             if (savedSprite != null && savedSprite.texture != null)
             {
-                Debug.Log($"ImageRenderer: Successfully loaded sprite from Resources: {imageRef}");
                 imageTexture = savedSprite.texture;
             }
         }
@@ -344,16 +324,10 @@ public static class ImageRenderer
         }
     }
 
-    /// <summary>
-    /// Downloads an image from a URL
-    /// </summary>
-    /// <param name="imageUrl">URL of the image to download</param>
-    /// <returns>Downloaded texture or null if failed</returns>
     public static Texture2D DownloadImageFromUrl(string imageUrl)
     {
         if (string.IsNullOrEmpty(imageUrl))
         {
-            Debug.LogError("ImageRenderer: Image URL is null or empty");
             return null;
         }
 
@@ -372,9 +346,6 @@ public static class ImageRenderer
 
                 if (imageData == null || imageData.Length == 0)
                 {
-                    Debug.LogError(
-                        $"ImageRenderer: Downloaded image data is null or empty for URL: {imageUrl}"
-                    );
                     return null;
                 }
 
@@ -383,16 +354,11 @@ public static class ImageRenderer
                 {
                     // Cache the texture
                     _downloadedImageCache[imageUrl] = texture;
-                    Debug.Log(
-                        $"ImageRenderer: Successfully downloaded and cached image from {imageUrl}"
-                    );
+
                     return texture;
                 }
                 else
                 {
-                    Debug.LogError(
-                        $"ImageRenderer: Failed to load image data into texture for URL: {imageUrl}"
-                    );
                     UnityEngine.Object.DestroyImmediate(texture);
                     return null;
                 }
@@ -400,7 +366,6 @@ public static class ImageRenderer
         }
         catch (Exception ex)
         {
-            Debug.LogError($"ImageRenderer: Error downloading image from {imageUrl}: {ex.Message}");
             return null;
         }
     }

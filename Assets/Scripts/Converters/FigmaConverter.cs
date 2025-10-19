@@ -588,10 +588,6 @@ public class FigmaConverter : MonoBehaviour
         // Check if node has image fills that need DirectSpriteGenerator
         if (HasImageFills(nodeData))
         {
-            if (config.enableDebugLogs)
-                Debug.Log($"Node {nodeName} has image fills, using DirectSpriteGenerator");
-
-            // Use DirectSpriteGenerator for nodes with image fills
             return ProcessNodeWithImageFills(nodeData, parent);
         }
 
@@ -636,28 +632,10 @@ public class FigmaConverter : MonoBehaviour
         string nodeName = nodeData["name"]?.ToString() ?? "UnnamedNode";
         string nodeType = nodeData["type"]?.ToString();
 
-        if (config.enableDebugLogs)
-            Debug.Log($"Processing node with image fills: {nodeName} (Type: {nodeType})");
-
         // Get node dimensions
         float width = nodeData["size"]?["x"]?.ToObject<float>() ?? 100f;
         float height = nodeData["size"]?["y"]?.ToObject<float>() ?? 100f;
-
-        if (config.enableDebugLogs)
-            Debug.Log($"Node dimensions: {width}x{height}");
-
-        // Get image fills data from cache
         var imageData = GetImageFillsFromCache();
-
-        if (config.enableDebugLogs)
-        {
-            Debug.Log($"Image fills cache contains {imageData.Count} entries");
-            foreach (var kvp in imageData)
-            {
-                Debug.Log($"  - {kvp.Key}: {kvp.Value?.Length ?? 0} characters");
-            }
-        }
-
         // Create GameObject for this node
         GameObject nodeGameObject = new GameObject(nodeName);
         nodeGameObject.transform.SetParent(parent, false);
@@ -671,10 +649,8 @@ public class FigmaConverter : MonoBehaviour
             return nodeGameObject;
         }
 
-        // Generate sprite using DirectSpriteGenerator
         StartCoroutine(GenerateSpriteForNode(nodeData, width, height, imageData, imageComponent));
 
-        // Cache created node
         if (!string.IsNullOrEmpty(nodeId))
         {
             _createdNodes[nodeId] = nodeGameObject;
@@ -697,7 +673,7 @@ public class FigmaConverter : MonoBehaviour
     }
 
     /// <summary>
-    /// Generates sprite for node with image fills using DirectSpriteGenerator
+    /// Generates sprite for node with image fills using ImageRenderer
     /// </summary>
     private IEnumerator GenerateSpriteForNode(
         JObject nodeData,
@@ -708,6 +684,7 @@ public class FigmaConverter : MonoBehaviour
     )
     {
         string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
+        string nodeId = nodeData["id"]?.ToString();
 
         if (config.enableDebugLogs)
         {
@@ -715,53 +692,100 @@ public class FigmaConverter : MonoBehaviour
             Debug.Log($"Image data available: {imageData?.Count ?? 0} entries");
         }
 
-        // Use DirectSpriteGenerator to generate sprite from Resources or create new one
-        yield return SpriteGenerator.GenerateSpriteFromResourcesOrCreateAsync(
-            nodeData,
-            width,
-            height,
-            imageData,
-            (sprite) =>
-            {
-                if (sprite != null && imageComponent != null)
-                {
-                    imageComponent.sprite = sprite;
-                    if (config.enableDebugLogs)
-                        Debug.Log(
-                            $"✓ Generated/loaded sprite for {nodeName}: {sprite.name} ({sprite.rect.width}x{sprite.rect.height})"
-                        );
-                }
-                else
-                {
-                    if (sprite == null)
-                    {
-                        Debug.LogError(
-                            $"Failed to generate/load sprite for {nodeName} - sprite is null"
-                        );
-                    }
-                    if (imageComponent == null)
-                    {
-                        Debug.LogError(
-                            $"Failed to assign sprite for {nodeName} - imageComponent is null"
-                        );
-                    }
+        // Get imageRef from node's fills
+        string imageRef = GetImageRefFromNode(nodeData);
+        if (string.IsNullOrEmpty(imageRef))
+        {
+            Debug.LogError($"No imageRef found in fills for node {nodeName} (ID: {nodeId})");
+            yield break;
+        }
 
-                    // Log additional debug info
-                    Debug.LogError($"Node data: {nodeData}");
-                    Debug.LogError($"Image data count: {imageData?.Count ?? 0}");
-                    if (imageData != null)
-                    {
-                        foreach (var kvp in imageData)
-                        {
-                            Debug.LogError(
-                                $"  ImageRef: {kvp.Key}, Data length: {kvp.Value?.Length ?? 0}"
-                            );
-                        }
-                    }
-                }
-            },
-            config.nodeId // Pass main nodeId for Resources lookup
+        // Check if we have image data for this imageRef
+        if (imageData == null || !imageData.ContainsKey(imageRef))
+        {
+            Debug.LogError(
+                $"No image data found for imageRef {imageRef} in node {nodeName} (ID: {nodeId})"
+            );
+            if (config.enableDebugLogs && imageData != null)
+            {
+                Debug.LogError($"Available imageRefs: {string.Join(", ", imageData.Keys)}");
+            }
+            yield break;
+        }
+
+        string base64ImageData = imageData[imageRef];
+        if (string.IsNullOrEmpty(base64ImageData))
+        {
+            Debug.LogError(
+                $"Empty image data for imageRef {imageRef} in node {nodeName} (ID: {nodeId})"
+            );
+            yield break;
+        }
+
+        // Use ImageRenderer to load image from base64 data
+        Texture2D imageTexture = ImageRenderer.LoadImageFromBase64(base64ImageData);
+        if (imageTexture == null)
+        {
+            Debug.LogError($"Failed to load image texture for {nodeName} from base64 data");
+            yield break;
+        }
+
+        // Create sprite from texture
+        Sprite sprite = Sprite.Create(
+            imageTexture,
+            new Rect(0, 0, imageTexture.width, imageTexture.height),
+            new Vector2(0.5f, 0.5f)
         );
+
+        if (sprite != null && imageComponent != null)
+        {
+            imageComponent.sprite = sprite;
+            if (config.enableDebugLogs)
+            {
+                Debug.Log(
+                    $"✓ Generated sprite for {nodeName}: {sprite.name} ({sprite.rect.width}x{sprite.rect.height})"
+                );
+            }
+
+            // Save sprite to Resources for future use
+            if (!string.IsNullOrEmpty(config.nodeId))
+            {
+                SpriteSaver.SaveSpriteToResources(sprite, nodeName, config.nodeId);
+            }
+        }
+        else
+        {
+            if (sprite == null)
+            {
+                Debug.LogError($"Failed to create sprite for {nodeName} - sprite is null");
+            }
+            if (imageComponent == null)
+            {
+                Debug.LogError($"Failed to assign sprite for {nodeName} - imageComponent is null");
+            }
+        }
+
+        yield return null;
+    }
+
+    /// <summary>
+    /// Gets the imageRef from node's fills
+    /// </summary>
+    private string GetImageRefFromNode(JObject nodeData)
+    {
+        JArray fills = nodeData["fills"] as JArray;
+        if (fills != null)
+        {
+            foreach (JObject fill in fills)
+            {
+                string fillType = fill["type"]?.ToString();
+                if (fillType == "IMAGE")
+                {
+                    return fill["imageRef"]?.ToString();
+                }
+            }
+        }
+        return null;
     }
 
     /// <summary>

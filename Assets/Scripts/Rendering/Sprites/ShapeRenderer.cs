@@ -8,19 +8,6 @@ using UnityEngine;
 /// </summary>
 public static class ShapeRenderer
 {
-    /// <summary>
-    /// Renders a rectangle shape with fills and strokes
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the rectangle</param>
-    /// <param name="height">Height of the rectangle</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="imageData">Image data for image fills</param>
-    /// <param name="mainNodeId">Main node ID for image references</param>
     public static void RenderRectangle(
         JObject nodeData,
         Color[] pixels,
@@ -37,7 +24,6 @@ public static class ShapeRenderer
         if (nodeData == null || pixels == null)
             return;
 
-        // Create mask for the rectangle
         bool[] mask = ShapeMaskGenerator.CreateRectangleMask(nodeData, (int)width, (int)height);
 
         // Render fills
@@ -69,19 +55,6 @@ public static class ShapeRenderer
         );
     }
 
-    /// <summary>
-    /// Renders an ellipse shape with fills and strokes
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the ellipse</param>
-    /// <param name="height">Height of the ellipse</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="imageData">Image data for image fills</param>
-    /// <param name="mainNodeId">Main node ID for image references</param>
     public static void RenderEllipse(
         JObject nodeData,
         Color[] pixels,
@@ -130,20 +103,6 @@ public static class ShapeRenderer
         );
     }
 
-    /// <summary>
-    /// Renders fills for a shape
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
-    /// <param name="imageData">Image data for image fills</param>
-    /// <param name="mainNodeId">Main node ID for image references</param>
     private static void RenderFills(
         JObject nodeData,
         Color[] pixels,
@@ -251,18 +210,6 @@ public static class ShapeRenderer
         }
     }
 
-    /// <summary>
-    /// Renders a solid color fill
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
     private static void RenderSolidFill(
         JObject nodeData,
         Color[] pixels,
@@ -289,18 +236,6 @@ public static class ShapeRenderer
         );
     }
 
-    /// <summary>
-    /// Renders a solid color fill with specified color
-    /// </summary>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
-    /// <param name="color">Fill color</param>
     private static void RenderSolidFill(
         Color[] pixels,
         int textureWidth,
@@ -344,20 +279,6 @@ public static class ShapeRenderer
         }
     }
 
-    /// <summary>
-    /// Renders an image fill
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
-    /// <param name="imageData">Image data</param>
-    /// <param name="mainNodeId">Main node ID</param>
     private static void RenderImageFill(
         JObject nodeData,
         Color[] pixels,
@@ -387,18 +308,6 @@ public static class ShapeRenderer
         );
     }
 
-    /// <summary>
-    /// Renders a gradient fill
-    /// </summary>
-    /// <param name="fillData">Gradient fill data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
     private static void RenderGradientFill(
         JObject fillData,
         Color[] pixels,
@@ -454,15 +363,6 @@ public static class ShapeRenderer
         }
     }
 
-    /// <summary>
-    /// Calculates gradient color at a specific position
-    /// </summary>
-    /// <param name="fillData">Gradient fill data</param>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <returns>Gradient color at the position</returns>
     private static Color CalculateGradientColor(
         JObject fillData,
         int x,
@@ -498,15 +398,6 @@ public static class ShapeRenderer
         return InterpolateGradientStops(gradientStops, t);
     }
 
-    /// <summary>
-    /// Calculates the t value for linear gradient
-    /// </summary>
-    /// <param name="fillData">Gradient fill data</param>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <returns>T value for gradient interpolation</returns>
     private static float CalculateLinearGradientT(
         JObject fillData,
         int x,
@@ -528,15 +419,6 @@ public static class ShapeRenderer
         return (float)x / width;
     }
 
-    /// <summary>
-    /// Calculates the t value for radial gradient
-    /// </summary>
-    /// <param name="fillData">Gradient fill data</param>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <returns>T value for gradient interpolation</returns>
     private static float CalculateRadialGradientT(
         JObject fillData,
         int x,
@@ -554,12 +436,6 @@ public static class ShapeRenderer
         return Mathf.Clamp01(distance / maxDistance);
     }
 
-    /// <summary>
-    /// Interpolates between gradient stops
-    /// </summary>
-    /// <param name="gradientStops">Array of gradient stops</param>
-    /// <param name="t">Interpolation parameter (0-1)</param>
-    /// <returns>Interpolated color</returns>
     private static Color InterpolateGradientStops(JArray gradientStops, float t)
     {
         if (gradientStops.Count == 0)
@@ -596,11 +472,6 @@ public static class ShapeRenderer
             return GetColorFromGradientStop(gradientStops[gradientStops.Count - 1] as JObject);
     }
 
-    /// <summary>
-    /// Gets color from a gradient stop
-    /// </summary>
-    /// <param name="stopData">Gradient stop data</param>
-    /// <returns>Color from the stop</returns>
     private static Color GetColorFromGradientStop(JObject stopData)
     {
         if (stopData == null)
@@ -618,18 +489,6 @@ public static class ShapeRenderer
         return new Color(r, g, b, a);
     }
 
-    /// <summary>
-    /// Renders strokes for a shape
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
     private static void RenderStrokes(
         JObject nodeData,
         Color[] pixels,
@@ -670,19 +529,6 @@ public static class ShapeRenderer
         }
     }
 
-    /// <summary>
-    /// Applies stroke to a shape
-    /// </summary>
-    /// <param name="pixels">Pixel array to render to</param>
-    /// <param name="textureWidth">Width of the texture</param>
-    /// <param name="textureHeight">Height of the texture</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="offsetX">X offset in texture</param>
-    /// <param name="offsetY">Y offset in texture</param>
-    /// <param name="mask">Shape mask</param>
-    /// <param name="strokeColor">Stroke color</param>
-    /// <param name="strokeWeight">Stroke weight</param>
     private static void ApplyStroke(
         Color[] pixels,
         int textureWidth,
@@ -728,54 +574,39 @@ public static class ShapeRenderer
         }
     }
 
-    /// <summary>
-    /// Checks if a pixel is on the edge of a shape
-    /// </summary>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
-    /// <param name="width">Width of the shape</param>
-    /// <param name="height">Height of the shape</param>
-    /// <param name="mask">Shape mask</param>
-    /// <param name="strokePixels">Stroke width in pixels</param>
-    /// <returns>True if pixel is on the edge</returns>
-    private static bool IsOnShapeEdge(
-        int x,
-        int y,
-        int width,
-        int height,
-        bool[] mask,
-        int strokePixels
-    )
-    {
-        // Check if any neighboring pixel is outside the shape
-        for (int dy = -strokePixels; dy <= strokePixels; dy++)
-        {
-            for (int dx = -strokePixels; dx <= strokePixels; dx++)
-            {
-                int neighborX = x + dx;
-                int neighborY = y + dy;
+    // private static bool IsOnShapeEdge(
+    //     int x,
+    //     int y,
+    //     int width,
+    //     int height,
+    //     bool[] mask,
+    //     int strokePixels
+    // )
+    // {
+    //     // Check if any neighboring pixel is outside the shape
+    //     for (int dy = -strokePixels; dy <= strokePixels; dy++)
+    //     {
+    //         for (int dx = -strokePixels; dx <= strokePixels; dx++)
+    //         {
+    //             int neighborX = x + dx;
+    //             int neighborY = y + dy;
 
-                if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height)
-                {
-                    return true; // Neighbor is outside bounds
-                }
+    //             if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height)
+    //             {
+    //                 return true; // Neighbor is outside bounds
+    //             }
 
-                int neighborIndex = neighborY * width + neighborX;
-                if (neighborIndex < mask.Length && !mask[neighborIndex])
-                {
-                    return true; // Neighbor is outside the shape
-                }
-            }
-        }
+    //             int neighborIndex = neighborY * width + neighborX;
+    //             if (neighborIndex < mask.Length && !mask[neighborIndex])
+    //             {
+    //                 return true; // Neighbor is outside the shape
+    //             }
+    //         }
+    //     }
 
-        return false;
-    }
+    //     return false;
+    // }
 
-    /// <summary>
-    /// Gets the fill color from a specific fill object
-    /// </summary>
-    /// <param name="fill">Fill object</param>
-    /// <returns>Fill color</returns>
     private static Color GetFillColorFromFill(JObject fill)
     {
         if (fill == null)
@@ -795,11 +626,6 @@ public static class ShapeRenderer
         return SpriteGenerationConstants.DEFAULT_FILL_COLOR;
     }
 
-    /// <summary>
-    /// Gets the fill color from node data
-    /// </summary>
-    /// <param name="nodeData">Figma node data</param>
-    /// <returns>Fill color</returns>
     private static Color GetFillColor(JObject nodeData)
     {
         if (nodeData == null)
@@ -831,11 +657,6 @@ public static class ShapeRenderer
         return SpriteGenerationConstants.DEFAULT_FILL_COLOR;
     }
 
-    /// <summary>
-    /// Gets the stroke color from stroke data
-    /// </summary>
-    /// <param name="strokeData">Stroke data</param>
-    /// <returns>Stroke color</returns>
     private static Color GetStrokeColor(JObject strokeData)
     {
         if (strokeData == null)
