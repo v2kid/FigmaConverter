@@ -1,15 +1,7 @@
 using Newtonsoft.Json.Linq;
 
-/// <summary>
-/// Detects if a FRAME/GROUP is actually an icon (contains only vector children)
-/// Icons will be downloaded via Figma Image API instead of being generated from paths
-/// </summary>
 public static class FigmaIconDetector
 {
-    /// <summary>
-    /// Checks if a node is an icon frame (contains only vector children)
-    /// These frames should be downloaded as images via Figma Image API
-    /// </summary>
     public static bool IsIconFrame(JObject nodeData)
     {
         string nodeType = nodeData["type"]?.ToString()?.ToUpper();
@@ -101,19 +93,5 @@ public static class FigmaIconDetector
         return count;
     }
 
-    /// <summary>
-    /// Gets a summary of an icon frame for logging
-    /// </summary>
-    public static string GetIconFrameSummary(JObject iconFrame)
-    {
-        string name = iconFrame["name"]?.ToString() ?? "Unknown";
-        string id = iconFrame["id"]?.ToString() ?? "";
-        int vectorCount = CountVectorChildren(iconFrame);
-
-        JObject bounds = iconFrame["absoluteBoundingBox"] as JObject;
-        float width = bounds?["width"]?.ToObject<float>() ?? 0f;
-        float height = bounds?["height"]?.ToObject<float>() ?? 0f;
-
-        return $"Icon: {name} (ID: {id}, {vectorCount} vectors, {width}x{height}px)";
-    }
+    // UNUSED: GetIconFrameSummary - Not used anywhere in the codebase
 }

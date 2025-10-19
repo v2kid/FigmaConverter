@@ -32,9 +32,6 @@ public class FigmaConverterConfig
     public int nodeCacheSize = 1000;
     public bool enableObjectPooling = true;
 
-    [Header("Debug")]
-    public bool enableDebugLogs = false;
-
     // Runtime properties
     [System.NonSerialized]
     public string targetNodeId;

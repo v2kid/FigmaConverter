@@ -86,13 +86,6 @@ public class FigmaConverter : MonoBehaviour
             _transformService = new UITransformService(config);
 
             _servicesInitialized = true;
-
-            if (config.enableDebugLogs)
-            {
-                Debug.Log($"  Sprite Cache: {config.spriteCacheSize} MB");
-                Debug.Log($"  Node Cache: {config.nodeCacheSize} entries");
-                Debug.Log($"  Object Pooling: {config.enableObjectPooling}");
-            }
         }
         catch (System.Exception ex)
         {
@@ -128,13 +121,6 @@ public class FigmaConverter : MonoBehaviour
         {
             config.fileId = extractedIds.Value.fileId;
             config.nodeId = extractedIds.Value.nodeId;
-
-            if (config.enableDebugLogs)
-            {
-                Debug.Log($"✓ Extracted from URL:");
-                Debug.Log($"  File ID: {config.fileId}");
-                Debug.Log($"  Node ID: {config.nodeId}");
-            }
 
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(this);
@@ -177,14 +163,9 @@ public class FigmaConverter : MonoBehaviour
                     localPath,
                     InteractionMode.UserAction
                 );
-
-                if (config.enableDebugLogs)
-                    Debug.Log($"✓ Created prefab: {localPath}");
             }
         }
 
-        if (config.enableDebugLogs)
-            Debug.Log("✓ Prefab generation completed!");
 #else
         Debug.LogWarning("Prefab generation only works in Unity Editor");
 #endif
@@ -200,14 +181,6 @@ public class FigmaConverter : MonoBehaviour
         yield return DownloadImages();
         InitializeServices();
         StartCoroutine(ConvertNodeCoroutine());
-
-        // Log performance stats
-        if (config.enableDebugLogs)
-        {
-            Debug.Log($"✓ Cache Stats: {_spriteCache.GetStatistics()}");
-            if (_objectPool != null)
-                Debug.Log($"✓ Pool Stats: {_objectPool.GetStatistics()}");
-        }
     }
 
     private IEnumerator DownloadNodeData()
@@ -249,12 +222,6 @@ public class FigmaConverter : MonoBehaviour
                     // Index the node tree for fast lookup
                     _nodeCache.IndexNodeTree(_currentNodeData);
 
-                    if (config.enableDebugLogs)
-                    {
-                        Debug.Log($"✓ Downloaded: {_currentNodeData["name"]}");
-                        Debug.Log($"✓ Indexed {_nodeCache.CachedNodeCount} nodes");
-                    }
-
                     SaveNodeDataToResources(jsonContent);
                 }
                 else
@@ -282,13 +249,8 @@ public class FigmaConverter : MonoBehaviour
 
         if (imageNodeIds.Count == 0)
         {
-            if (config.enableDebugLogs)
-                Debug.Log("No images or icons to download.");
             yield break;
         }
-
-        if (config.enableDebugLogs)
-            Debug.Log($"Found {imageNodeIds.Count} nodes to download as images");
 
         yield return DownloadImagesFromIds(imageNodeIds);
     }
@@ -309,15 +271,8 @@ public class FigmaConverter : MonoBehaviour
 
         if (imageRefs.Count == 0)
         {
-            if (config.enableDebugLogs)
-                Debug.Log("No image fills found in node data.");
             yield break;
         }
-
-        if (config.enableDebugLogs)
-            Debug.Log(
-                $"Found {imageRefs.Count} image fills to download: {string.Join(", ", imageRefs)}"
-            );
 
         // Download image fills using FigmaApi
         var figmaApi = new FigmaApi(config.figmaToken);
@@ -348,8 +303,6 @@ public class FigmaConverter : MonoBehaviour
         var figmaImageData = task.Result;
         if (figmaImageData == null || figmaImageData.Count == 0)
         {
-            if (config.enableDebugLogs)
-                Debug.LogWarning("No image fills were downloaded.");
             figmaApi.Dispose();
             yield break;
         }
@@ -357,23 +310,6 @@ public class FigmaConverter : MonoBehaviour
         // Convert to DirectSpriteGenerator format and store in cache
         var imageData = SpriteGenerator.ConvertFigmaImageData(figmaImageData);
         StoreImageFillsInCache(imageData);
-
-        if (config.enableDebugLogs)
-        {
-            Debug.Log($"✓ Downloaded {figmaImageData.Count} image fills");
-            foreach (var kvp in figmaImageData)
-            {
-                if (kvp.Value != null)
-                {
-                    Debug.Log($"  - {kvp.Key}: {kvp.Value.Length} bytes");
-                }
-                else
-                {
-                    Debug.LogWarning($"  - {kvp.Key}: No data available");
-                }
-            }
-        }
-
         figmaApi.Dispose();
     }
 
@@ -410,8 +346,6 @@ public class FigmaConverter : MonoBehaviour
         var images = task.Result;
         if (images == null || images.Count == 0)
         {
-            if (config.enableDebugLogs)
-                Debug.LogWarning("No images were downloaded.");
             figmaApi.Dispose();
             yield break;
         }
@@ -433,8 +367,6 @@ public class FigmaConverter : MonoBehaviour
 
             if (imageData == null)
             {
-                if (config.enableDebugLogs)
-                    Debug.LogWarning($"⚠ Image node {imageNodeId} returned null data");
                 continue;
             }
 
@@ -444,11 +376,7 @@ public class FigmaConverter : MonoBehaviour
                 resourcesSpritesPath,
                 $"{fileName}.{config.imageFormat}"
             );
-
             File.WriteAllBytes(filePath, imageData);
-
-            if (config.enableDebugLogs)
-                Debug.Log($"✓ Saved image: {fileName}.{config.imageFormat}");
         }
 
 #if UNITY_EDITOR
@@ -511,8 +439,6 @@ public class FigmaConverter : MonoBehaviour
                 if (!iconFrameIds.Contains(nodeId))
                 {
                     iconFrameIds.Add(nodeId);
-                    if (config.enableDebugLogs)
-                        Debug.Log($"Found icon frame: {obj["name"]} ({nodeId})");
                 }
                 return; // Don't recurse into children
             }
@@ -541,8 +467,6 @@ public class FigmaConverter : MonoBehaviour
             if (config.createNewCanvas)
             {
                 CreateCanvas();
-                if (config.enableDebugLogs)
-                    Debug.Log("Created new canvas for UI conversion");
             }
             else
             {
@@ -551,28 +475,13 @@ public class FigmaConverter : MonoBehaviour
             }
         }
 
-        if (config.enableDebugLogs)
-        {
-            Debug.Log(
-                $"Converting node: {_currentNodeData["name"]} (Type: {_currentNodeData["type"]})"
-            );
-        }
-
         try
         {
             ProcessFigmaNode(_currentNodeData, config.targetCanvas.transform);
-
-            if (config.enableDebugLogs)
-            {
-                Debug.Log("✓ Figma to UI conversion completed!");
-                Debug.Log($"✓ Created {_createdNodes.Count} UI elements");
-            }
         }
         catch (System.Exception ex)
         {
             Debug.LogError($"Error during conversion: {ex.Message}");
-            if (config.enableDebugLogs)
-                Debug.LogError($"Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -582,10 +491,6 @@ public class FigmaConverter : MonoBehaviour
         string nodeName = nodeData["name"]?.ToString() ?? "UnnamedNode";
         string nodeType = nodeData["type"]?.ToString();
 
-        if (config.enableDebugLogs)
-            Debug.Log($"Processing: {nodeName} (ID: {nodeId}, Type: {nodeType})");
-
-        // Check if node has image fills that need DirectSpriteGenerator
         if (HasImageFills(nodeData))
         {
             return ProcessNodeWithImageFills(nodeData, parent);
@@ -686,13 +591,6 @@ public class FigmaConverter : MonoBehaviour
         string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
         string nodeId = nodeData["id"]?.ToString();
 
-        if (config.enableDebugLogs)
-        {
-            Debug.Log($"Generating sprite for {nodeName} (Size: {width}x{height})");
-            Debug.Log($"Image data available: {imageData?.Count ?? 0} entries");
-        }
-
-        // Get imageRef from node's fills
         string imageRef = GetImageRefFromNode(nodeData);
         if (string.IsNullOrEmpty(imageRef))
         {
@@ -706,10 +604,6 @@ public class FigmaConverter : MonoBehaviour
             Debug.LogError(
                 $"No image data found for imageRef {imageRef} in node {nodeName} (ID: {nodeId})"
             );
-            if (config.enableDebugLogs && imageData != null)
-            {
-                Debug.LogError($"Available imageRefs: {string.Join(", ", imageData.Keys)}");
-            }
             yield break;
         }
 
@@ -740,13 +634,6 @@ public class FigmaConverter : MonoBehaviour
         if (sprite != null && imageComponent != null)
         {
             imageComponent.sprite = sprite;
-            if (config.enableDebugLogs)
-            {
-                Debug.Log(
-                    $"✓ Generated sprite for {nodeName}: {sprite.name} ({sprite.rect.width}x{sprite.rect.height})"
-                );
-            }
-
             // Save sprite to Resources for future use
             if (!string.IsNullOrEmpty(config.nodeId))
             {
@@ -821,9 +708,6 @@ public class FigmaConverter : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
 
         canvasGO.AddComponent<GraphicRaycaster>();
-
-        if (config.enableDebugLogs)
-            Debug.Log($"✓ Created Canvas: {config.canvasName}");
     }
 
     #endregion
@@ -890,9 +774,6 @@ public class FigmaConverter : MonoBehaviour
         {
             _imageFillsCache[kvp.Key] = kvp.Value;
         }
-
-        if (config.enableDebugLogs)
-            Debug.Log($"✓ Stored {imageData.Count} image fills in cache");
     }
 
     /// <summary>
@@ -919,9 +800,6 @@ public class FigmaConverter : MonoBehaviour
             string filePath = Path.Combine(folderPath, fileName);
 
             File.WriteAllText(filePath, jsonContent);
-
-            if (config.enableDebugLogs)
-                Debug.Log($"✓ Saved: {fileName}");
 
 #if UNITY_EDITOR
             UnityEditor.AssetDatabase.Refresh();

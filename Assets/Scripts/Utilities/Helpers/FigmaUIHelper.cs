@@ -12,71 +12,6 @@ public static class FigmaUIHelper
     public static readonly Color FigmaRed = new Color(1f, 0.3f, 0.3f, 1f);
     public static readonly Color FigmaGreen = new Color(0.2f, 0.8f, 0.4f, 1f);
 
-    /// <summary>
-    /// Creates a rounded rectangle using a 9-slice sprite
-    /// </summary>
-    public static void ApplyRoundedCorners(Image image, float cornerRadius)
-    {
-        if (cornerRadius <= 0)
-            return;
-
-        // Create a simple rounded sprite (you would need to have this asset)
-        // For now, we'll use the default UI sprite and modify the Image type
-        image.type = Image.Type.Sliced;
-
-        // You could create a procedural rounded rectangle sprite here
-        // or use a pre-made rounded rectangle sprite asset
-    }
-
-    /// <summary>
-    /// Applies shadow effect to UI element
-    /// </summary>
-    public static Shadow ApplyShadow(
-        GameObject target,
-        Vector2 offset,
-        Color color,
-        bool useGraphicAlpha = true
-    )
-    {
-        Shadow shadow = target.GetComponent<Shadow>();
-        if (shadow == null)
-        {
-            shadow = target.AddComponent<Shadow>();
-        }
-
-        shadow.effectDistance = offset;
-        shadow.effectColor = color;
-        shadow.useGraphicAlpha = useGraphicAlpha;
-
-        return shadow;
-    }
-
-    /// <summary>
-    /// Applies outline effect to UI element
-    /// </summary>
-    public static Outline ApplyOutline(
-        GameObject target,
-        Vector2 effectDistance,
-        Color color,
-        bool useGraphicAlpha = true
-    )
-    {
-        Outline outline = target.GetComponent<Outline>();
-        if (outline == null)
-        {
-            outline = target.AddComponent<Outline>();
-        }
-
-        outline.effectDistance = effectDistance;
-        outline.effectColor = color;
-        outline.useGraphicAlpha = useGraphicAlpha;
-
-        return outline;
-    }
-
-    /// <summary>
-    /// Creates a button from a Figma node
-    /// </summary>
     public static Button ConvertToButton(GameObject target, bool interactable = true)
     {
         Button button = target.GetComponent<Button>();
@@ -99,9 +34,6 @@ public static class FigmaUIHelper
         return button;
     }
 
-    /// <summary>
-    /// Creates a scroll view setup
-    /// </summary>
     public static ScrollRect CreateScrollView(GameObject parent, Vector2 size)
     {
         GameObject scrollViewGO = new GameObject("ScrollView");
@@ -153,9 +85,6 @@ public static class FigmaUIHelper
         return scrollRect;
     }
 
-    /// <summary>
-    /// Applies auto layout (similar to Figma's auto layout)
-    /// </summary>
     public static void ApplyAutoLayout(
         GameObject target,
         string direction = "VERTICAL",
@@ -293,25 +222,6 @@ public static class FigmaUIHelper
         }
     }
 
-    // public static string SanitizeFileName(this string fileName)
-    // {
-    //     if (string.IsNullOrEmpty(fileName)) return "unknown";
-
-    //     // Remove invalid filename characters
-    //     char[] invalidChars = Path.GetInvalidFileNameChars();
-    //     foreach (char c in invalidChars)
-    //     {
-    //         fileName = fileName.Replace(c, '_');
-    //     }
-
-    //     // Replace spaces with underscores
-    //     fileName = fileName.Replace(' ', '_');
-
-    //     return fileName;
-    // }
-    // /// <summary>
-    // /// Creates a prefab from the given GameObject
-    // /// </summary>
     public static GameObject CreatePrefab(GameObject source, string path, string name)
     {
 #if UNITY_EDITOR

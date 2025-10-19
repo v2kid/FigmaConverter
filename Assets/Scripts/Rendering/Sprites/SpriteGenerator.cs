@@ -162,8 +162,7 @@ public static class SpriteGenerator
 
                 if (!string.IsNullOrEmpty(imageUrl))
                 {
-                    // Download image asynchronously from URL with higher resolution and save to Resources
-                    yield return DownloadImageFromUrlAsync(
+                    yield return ImageRenderer.DownloadImageFromUrlAsync(
                         imageUrl,
                         (downloadedTexture) =>
                         {
@@ -212,7 +211,6 @@ public static class SpriteGenerator
                 }
                 else if (!string.IsNullOrEmpty(imageRef))
                 {
-                    // Check if we have image data for this imageRef
                     if (imageData != null && imageData.ContainsKey(imageRef))
                     {
                         // We have the image data, generate sprite normally
@@ -312,41 +310,9 @@ public static class SpriteGenerator
         );
     }
 
-    /// <summary>
-    /// Downloads an image from URL using ImageRenderer
-    /// </summary>
-    /// <param name="imageUrl">URL of the image to download</param>
-    /// <returns>Downloaded texture or null if failed</returns>
-    public static Texture2D DownloadImageFromUrl(string imageUrl)
-    {
-        return ImageRenderer.DownloadImageFromUrl(imageUrl);
-    }
+    // UNUSED: DownloadImageFromUrl - Direct wrapper, use ImageRenderer.DownloadImageFromUrl instead
 
-    /// <summary>
-    /// Downloads an image from URL asynchronously using ImageRenderer
-    /// </summary>
-    /// <param name="imageUrl">URL of the image to download</param>
-    /// <param name="onComplete">Callback when download is complete</param>
-    /// <param name="maxTextureSize">Maximum texture size for high resolution</param>
-    /// <param name="mainNodeId">Main node ID from config for saving to Resources</param>
-    /// <param name="imageName">Image name for saving to Resources</param>
-    /// <returns>Coroutine for the download</returns>
-    public static IEnumerator DownloadImageFromUrlAsync(
-        string imageUrl,
-        System.Action<Texture2D> onComplete,
-        int maxTextureSize = 2048,
-        string mainNodeId = null,
-        string imageName = null
-    )
-    {
-        yield return ImageRenderer.DownloadImageFromUrlAsync(
-            imageUrl,
-            onComplete,
-            maxTextureSize,
-            mainNodeId,
-            imageName
-        );
-    }
+    // UNUSED: DownloadImageFromUrlAsync - Direct wrapper, use ImageRenderer.DownloadImageFromUrlAsync instead
 
     /// <summary>
     /// Loads a sprite from Resources using SpriteSaver
@@ -387,15 +353,7 @@ public static class SpriteGenerator
         ImageRenderer.ClearImageCache();
     }
 
-    /// <summary>
-    /// Converts image data to base64 using ImageRenderer
-    /// </summary>
-    /// <param name="imageData">Image data bytes</param>
-    /// <returns>Base64 encoded string</returns>
-    public static string ConvertImageDataToBase64(byte[] imageData)
-    {
-        return ImageRenderer.ConvertImageDataToBase64(imageData);
-    }
+    // UNUSED: ConvertImageDataToBase64 - Direct wrapper, use ImageRenderer.ConvertImageDataToBase64 instead
 
     /// <summary>
     /// Converts FigmaApi image data dictionary to DirectSpriteGenerator format
@@ -414,7 +372,7 @@ public static class SpriteGenerator
         {
             if (kvp.Value != null)
             {
-                convertedData[kvp.Key] = ConvertImageDataToBase64(kvp.Value);
+                convertedData[kvp.Key] = ImageRenderer.ConvertImageDataToBase64(kvp.Value);
             }
         }
         return convertedData;

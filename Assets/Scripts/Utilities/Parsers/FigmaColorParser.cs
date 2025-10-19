@@ -37,19 +37,5 @@ public static class FigmaColorParser
         return Color.clear;
     }
 
-    public static string ColorToHex(Color color)
-    {
-        int r = Mathf.RoundToInt(color.r * 255);
-        int g = Mathf.RoundToInt(color.g * 255);
-        int b = Mathf.RoundToInt(color.b * 255);
-        return $"#{r:X2}{g:X2}{b:X2}";
-    }
-
-    public static string ColorToRGBA(Color color)
-    {
-        int r = Mathf.RoundToInt(color.r * 255);
-        int g = Mathf.RoundToInt(color.g * 255);
-        int b = Mathf.RoundToInt(color.b * 255);
-        return $"rgba({r}, {g}, {b}, {color.a})";
-    }
+    // UNUSED: ColorToHex and ColorToRGBA - Not used anywhere in the codebase
 }
