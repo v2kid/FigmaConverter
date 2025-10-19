@@ -82,24 +82,27 @@ public class UIElementFactory
         // Check if has fills or image prefix
         JArray fills = nodeData["fills"] as JArray;
         bool hasFills = fills != null && fills.Count > 0;
-        bool hasImagePrefix = nodeName.StartsWith(Constant.IMAGE_PREFIX);
 
-        if (hasFills || hasImagePrefix)
+        if (hasFills)
         {
             Image backgroundImage = container.AddComponent<Image>();
             backgroundImage.type = Image.Type.Sliced;
 
-            if (hasImagePrefix)
-            {
-                ApplyImageSprite(container, nodeName, backgroundImage);
-            }
-            else if (hasFills)
-            {
-                JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
-                float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
-                float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
-                ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
-            }
+            // if (hasImagePrefix)
+            // {
+            //     ApplyImageSprite(container, nodeName, backgroundImage);
+            // }
+            // else if (hasFills)
+            // {
+            //     JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
+            //     float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
+            //     float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
+            //     ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
+            // }
+            JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
+            float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
+            float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
+            ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
         }
 
         return container;
@@ -114,26 +117,16 @@ public class UIElementFactory
         textGO.transform.SetParent(parent, false);
         textGO.AddComponent<RectTransform>();
 
-        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
-        {
-            Image image = textGO.AddComponent<Image>();
-            image.type = Image.Type.Sliced;
-            ApplyImageSprite(textGO, nodeName, image);
-        }
-        else
-        {
-            TextMeshProUGUI tmpText = textGO.AddComponent<TextMeshProUGUI>();
-            string characters = nodeData["characters"]?.ToString() ?? "Sample Text";
-            tmpText.text = characters;
-            tmpText.textWrappingMode = TextWrappingModes.NoWrap;
+        TextMeshProUGUI tmpText = textGO.AddComponent<TextMeshProUGUI>();
+        string characters = nodeData["characters"]?.ToString() ?? "Sample Text";
+        tmpText.text = characters;
+        tmpText.textWrappingMode = TextWrappingModes.NoWrap;
 
-            if (_config.defaultFont != null)
-                tmpText.font = _config.defaultFont;
+        if (_config.defaultFont != null)
+            tmpText.font = _config.defaultFont;
 
-            ApplyTextStyling(nodeData, tmpText);
-            ApplyTextColor(nodeData, tmpText);
-        }
-
+        ApplyTextStyling(nodeData, tmpText);
+        ApplyTextColor(nodeData, tmpText);
         return textGO;
     }
 
@@ -148,18 +141,10 @@ public class UIElementFactory
 
         Image image = shapeGO.AddComponent<Image>();
         image.type = Image.Type.Sliced;
-        
-        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
-        {
-            ApplyImageSprite(shapeGO, nodeName, image);
-        }
-        else
-        {
-            JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
-            float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
-            float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
-            ApplyStyledSprite(shapeGO, nodeData, image, width, height);
-        }
+        JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
+        float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
+        float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
+        ApplyStyledSprite(shapeGO, nodeData, image, width, height);
 
         return shapeGO;
     }
@@ -175,18 +160,10 @@ public class UIElementFactory
 
         Image image = vectorGO.AddComponent<Image>();
         image.type = Image.Type.Sliced;
-
-        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
-        {
-            ApplyImageSprite(vectorGO, nodeName, image);
-        }
-        else
-        {
-            JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
-            float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
-            float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
-            ApplyVectorSprite(vectorGO, nodeData, image, width, height);
-        }
+        JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
+        float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
+        float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
+        ApplyVectorSprite(vectorGO, nodeData, image, width, height);
 
         return vectorGO;
     }
@@ -199,13 +176,6 @@ public class UIElementFactory
         GameObject genericGO = new GameObject(nodeName);
         genericGO.transform.SetParent(parent, false);
         genericGO.AddComponent<RectTransform>();
-
-        if (nodeName.StartsWith(Constant.IMAGE_PREFIX))
-        {
-            Image image = genericGO.AddComponent<Image>();
-            image.type = Image.Type.Sliced;
-            ApplyImageSprite(genericGO, nodeName, image);
-        }
 
         return genericGO;
     }
@@ -240,32 +210,6 @@ public class UIElementFactory
         else
         {
             iconImage.color = Color.clear;
-        }
-    }
-
-    private void ApplyImageSprite(GameObject gameObject, string nodeName, Image image)
-    {
-        if (!nodeName.StartsWith(Constant.IMAGE_PREFIX))
-            return;
-
-        // Check cache first
-        Sprite cachedSprite = _spriteCache.Get(nodeName);
-        if (cachedSprite != null)
-        {
-            image.sprite = cachedSprite;
-            image.preserveAspect = true;
-            return;
-        }
-
-        // Load from Resources
-        string nodeIdForPath = _config.targetNodeId.Replace(":", "-");
-        Sprite sprite = Resources.Load<Sprite>($"Sprites/{nodeIdForPath}/{gameObject.name}");
-
-        if (sprite != null)
-        {
-            image.sprite = sprite;
-            image.preserveAspect = true;
-            _spriteCache.Add(nodeName, sprite);
         }
     }
 
@@ -314,7 +258,7 @@ public class UIElementFactory
         }
 
         // Generate sprite if not found
-        Sprite generatedSprite = DirectSpriteGenerator.GenerateSpriteFromNodeDirect(
+        Sprite generatedSprite = SpriteGenerator.GenerateSpriteFromNodeDirect(
             nodeData,
             width,
             height

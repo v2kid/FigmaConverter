@@ -340,7 +340,13 @@ public static class SpriteGenerator
         string imageName = null
     )
     {
-        yield return ImageRenderer.DownloadImageFromUrlAsync(imageUrl, onComplete);
+        yield return ImageRenderer.DownloadImageFromUrlAsync(
+            imageUrl,
+            onComplete,
+            maxTextureSize,
+            nodeId,
+            imageName
+        );
     }
 
     /// <summary>

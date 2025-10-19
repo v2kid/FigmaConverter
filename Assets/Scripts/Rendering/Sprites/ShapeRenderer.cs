@@ -323,21 +323,22 @@ public static class ShapeRenderer
         {
             for (int x = 0; x < textureWidth; x++)
             {
+                // Check if pixel is within the shape bounds (with offset) - like DirectSpriteGenerator
+                if (x < offsetX || x >= offsetX + width || y < offsetY || y >= offsetY + height)
+                    continue;
+
                 int pixelIndex = y * textureWidth + x;
                 if (pixelIndex >= pixels.Length)
                     continue;
 
-                // Check if pixel is within shape bounds
+                // Calculate local coordinates relative to shape bounds
                 int localX = x - offsetX;
                 int localY = y - offsetY;
 
-                if (localX >= 0 && localX < maskWidth && localY >= 0 && localY < maskHeight)
+                int maskIndex = localY * maskWidth + localX;
+                if (maskIndex < mask.Length && mask[maskIndex])
                 {
-                    int maskIndex = localY * maskWidth + localX;
-                    if (maskIndex < mask.Length && mask[maskIndex])
-                    {
-                        pixels[pixelIndex] = color;
-                    }
+                    pixels[pixelIndex] = color;
                 }
             }
         }
@@ -371,10 +372,9 @@ public static class ShapeRenderer
         string mainNodeId
     )
     {
-        // This will be implemented by ImageRenderer
-        // For now, fallback to solid fill
-        Color fallbackColor = GetFillColor(nodeData);
-        RenderSolidFill(
+        // Use ImageRenderer to render image fills
+        ImageRenderer.RenderImageFill(
+            nodeData,
             pixels,
             textureWidth,
             textureHeight,
@@ -382,8 +382,8 @@ public static class ShapeRenderer
             height,
             offsetX,
             offsetY,
-            mask,
-            fallbackColor
+            imageData,
+            mainNodeId
         );
     }
 
@@ -703,31 +703,26 @@ public static class ShapeRenderer
         int maskHeight = (int)height;
         int strokePixels = Mathf.CeilToInt(strokeWeight);
 
-        for (int y = 0; y < textureHeight; y++)
+        // Simple stroke rendering on edges (relative to shape bounds) - like DirectSpriteGenerator
+        for (int y = offsetY; y < offsetY + height; y++)
         {
-            for (int x = 0; x < textureWidth; x++)
+            for (int x = offsetX; x < offsetX + width; x++)
             {
-                int pixelIndex = y * textureWidth + x;
-                if (pixelIndex >= pixels.Length)
+                if (x < 0 || x >= textureWidth || y < 0 || y >= textureHeight)
                     continue;
 
-                // Check if pixel is within shape bounds
-                int localX = x - offsetX;
-                int localY = y - offsetY;
+                bool isEdge =
+                    x < offsetX + strokePixels
+                    || x >= offsetX + width - strokePixels
+                    || y < offsetY + strokePixels
+                    || y >= offsetY + height - strokePixels;
 
-                if (localX >= 0 && localX < maskWidth && localY >= 0 && localY < maskHeight)
+                if (isEdge)
                 {
-                    int maskIndex = localY * maskWidth + localX;
-                    if (maskIndex < mask.Length && mask[maskIndex])
-                    {
-                        // Check if this pixel is on the edge of the shape
-                        if (
-                            IsOnShapeEdge(localX, localY, maskWidth, maskHeight, mask, strokePixels)
-                        )
-                        {
-                            pixels[pixelIndex] = strokeColor;
-                        }
-                    }
+                    int index = y * textureWidth + x;
+                    // Alpha blend with existing pixel - like DirectSpriteGenerator
+                    Color existing = pixels[index];
+                    pixels[index] = Color.Lerp(existing, strokeColor, strokeColor.a);
                 }
             }
         }

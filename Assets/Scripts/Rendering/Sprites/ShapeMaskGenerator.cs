@@ -78,17 +78,16 @@ public static class ShapeMaskGenerator
             for (int x = 0; x < width; x++)
             {
                 int index = y * width + x;
+                bool insideShape = true; // Default to true like DirectSpriteGenerator
 
                 if (cornerRadius > 0)
                 {
                     // Check if point is inside rounded rectangle
-                    mask[index] = IsInsideRoundedRect(x, y, width, height, cornerRadius);
+                    insideShape = IsInsideRoundedRect(x, y, width, height, cornerRadius);
                 }
-                else
-                {
-                    // Simple rectangle - all points inside bounds are valid
-                    mask[index] = x >= 0 && x < width && y >= 0 && y < height;
-                }
+                // For simple rectangle, all points inside bounds are valid (insideShape = true)
+
+                mask[index] = insideShape;
             }
         }
     }

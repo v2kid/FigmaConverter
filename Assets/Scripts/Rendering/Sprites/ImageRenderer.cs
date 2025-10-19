@@ -16,7 +16,7 @@ public static class ImageRenderer
         new Dictionary<string, Texture2D>();
 
     /// <summary>
-    /// Renders an image fill for a shape
+    /// Renders an image fill for a shape with full DirectSpriteGenerator compatibility
     /// </summary>
     /// <param name="nodeData">Figma node data</param>
     /// <param name="pixels">Pixel array to render to</param>
@@ -41,7 +41,7 @@ public static class ImageRenderer
         string mainNodeId
     )
     {
-        if (nodeData == null || pixels == null || imageData == null)
+        if (nodeData == null || pixels == null)
             return;
 
         // Get image fill data
@@ -49,39 +49,88 @@ public static class ImageRenderer
         if (imageFill == null)
             return;
 
-        // Get image reference
+        // Get image data from fill - like DirectSpriteGenerator
         string imageRef = imageFill["imageRef"]?.ToString();
-        if (string.IsNullOrEmpty(imageRef))
-            return;
+        string imageUrl = imageFill["imageUrl"]?.ToString();
 
-        // Get image data
-        if (
-            !imageData.TryGetValue(imageRef, out string base64Data)
-            || string.IsNullOrEmpty(base64Data)
-        )
+        Debug.Log($"ImageRenderer.RenderImageFill: imageRef={imageRef}, imageUrl={imageUrl}");
+
+        if (string.IsNullOrEmpty(imageRef) && string.IsNullOrEmpty(imageUrl))
         {
-            Debug.LogWarning($"ImageRenderer: No image data found for reference {imageRef}");
+            Debug.LogWarning("ImageRenderer: Image fill missing both imageRef and imageUrl");
             return;
         }
 
-        // Load image texture
-        Texture2D imageTexture = LoadImageFromBase64(base64Data);
+        Texture2D imageTexture = null;
+
+        // First, try to load from Resources using imageRef as imageName - like DirectSpriteGenerator
+        if (!string.IsNullOrEmpty(imageRef))
+        {
+            Debug.Log($"ImageRenderer: Trying to load from Resources using imageRef: {imageRef}");
+
+            // Try to load sprite from Resources first
+            Sprite savedSprite = SpriteSaver.LoadSpriteFromResourcesWithMainNodeId(
+                imageRef,
+                imageRef,
+                mainNodeId
+            );
+            if (savedSprite != null && savedSprite.texture != null)
+            {
+                Debug.Log($"ImageRenderer: Successfully loaded sprite from Resources: {imageRef}");
+                imageTexture = savedSprite.texture;
+            }
+        }
+
+        // If not found in Resources, try to get image from URL - like DirectSpriteGenerator
+        if (imageTexture == null && !string.IsNullOrEmpty(imageUrl))
+        {
+            Debug.Log($"ImageRenderer: Downloading image from URL: {imageUrl}");
+            imageTexture = DownloadImageFromUrl(imageUrl);
+        }
+        // Fallback to base64 data from dictionary - like DirectSpriteGenerator
+        else if (
+            imageTexture == null
+            && !string.IsNullOrEmpty(imageRef)
+            && imageData != null
+            && imageData.TryGetValue(imageRef, out string base64Data)
+        )
+        {
+            Debug.Log($"ImageRenderer: Loading image from base64 data for ref: {imageRef}");
+            imageTexture = LoadImageFromBase64(base64Data);
+        }
+        else if (imageTexture == null)
+        {
+            Debug.LogWarning(
+                $"ImageRenderer: Image data not found for ref: {imageRef} and no URL provided"
+            );
+            if (imageData != null)
+            {
+                Debug.LogWarning(
+                    $"ImageRenderer: Available imageRefs: {string.Join(", ", imageData.Keys)}"
+                );
+            }
+            return;
+        }
+
         if (imageTexture == null)
         {
             Debug.LogError(
-                $"ImageRenderer: Failed to load image from base64 data for reference {imageRef}"
+                $"ImageRenderer: Failed to load image for ref: {imageRef} or URL: {imageUrl}"
             );
             return;
         }
 
-        // Get image transform properties
+        // Get fill properties - like DirectSpriteGenerator
+        float opacity = imageFill["opacity"]?.ToObject<float>() ?? 1f;
         string scaleMode = imageFill["scaleMode"]?.ToString() ?? "FILL";
-        float scaleX = imageFill["scaleX"]?.Value<float>() ?? 1f;
-        float scaleY = imageFill["scaleY"]?.Value<float>() ?? 1f;
-        float rotation = imageFill["rotation"]?.Value<float>() ?? 0f;
-        float translationX = imageFill["translationX"]?.Value<float>() ?? 0f;
-        float translationY = imageFill["translationY"]?.Value<float>() ?? 0f;
-        float opacity = imageFill["opacity"]?.Value<float>() ?? 1f;
+
+        // Get image transform properties - like DirectSpriteGenerator
+        JObject imageTransform = imageFill["imageTransform"] as JObject;
+        float scaleX = imageTransform?["scaleX"]?.ToObject<float>() ?? 1f;
+        float scaleY = imageTransform?["scaleY"]?.ToObject<float>() ?? 1f;
+        float rotation = imageTransform?["rotation"]?.ToObject<float>() ?? 0f;
+        float translationX = imageTransform?["translationX"]?.ToObject<float>() ?? 0f;
+        float translationY = imageTransform?["translationY"]?.ToObject<float>() ?? 0f;
 
         // Create shape mask
         bool[] shapeMask = ShapeMaskGenerator.CreateMask(nodeData, (int)width, (int)height);
@@ -105,6 +154,12 @@ public static class ImageRenderer
             opacity,
             shapeMask
         );
+
+        // Don't destroy cached textures, only destroy if it's not in cache - like DirectSpriteGenerator
+        if (!_downloadedImageCache.ContainsValue(imageTexture))
+        {
+            UnityEngine.Object.DestroyImmediate(imageTexture);
+        }
     }
 
     /// <summary>
@@ -275,7 +330,13 @@ public static class ImageRenderer
                         int pixelIndex = y * textureWidth + x;
                         if (pixelIndex < pixels.Length)
                         {
-                            pixels[pixelIndex] = imageColor;
+                            // Alpha blend with existing pixel - like DirectSpriteGenerator
+                            Color existingColor = pixels[pixelIndex];
+                            pixels[pixelIndex] = Color.Lerp(
+                                existingColor,
+                                imageColor,
+                                imageColor.a
+                            );
                         }
                     }
                 }
@@ -345,14 +406,20 @@ public static class ImageRenderer
     }
 
     /// <summary>
-    /// Downloads an image from a URL asynchronously
+    /// Downloads an image from a URL asynchronously with full DirectSpriteGenerator compatibility
     /// </summary>
     /// <param name="imageUrl">URL of the image to download</param>
     /// <param name="onComplete">Callback when download is complete</param>
+    /// <param name="maxTextureSize">Maximum texture size for high resolution</param>
+    /// <param name="nodeId">Node ID for saving to Resources</param>
+    /// <param name="imageName">Image name for saving to Resources</param>
     /// <returns>Coroutine for the download</returns>
     public static IEnumerator DownloadImageFromUrlAsync(
         string imageUrl,
-        System.Action<Texture2D> onComplete
+        System.Action<Texture2D> onComplete,
+        int maxTextureSize = 2048,
+        string nodeId = null,
+        string imageName = null
     )
     {
         if (string.IsNullOrEmpty(imageUrl))
@@ -369,9 +436,12 @@ public static class ImageRenderer
             yield break;
         }
 
+        // Try to get higher resolution image by modifying URL parameters - like DirectSpriteGenerator
+        string highResUrl = GetHighResolutionImageUrl(imageUrl, maxTextureSize);
+
         using (
             UnityEngine.Networking.UnityWebRequest request =
-                UnityEngine.Networking.UnityWebRequestTexture.GetTexture(imageUrl)
+                UnityEngine.Networking.UnityWebRequestTexture.GetTexture(highResUrl)
         )
         {
             request.SetRequestHeader("User-Agent", "Unity-FigmaConverter");
@@ -385,10 +455,42 @@ public static class ImageRenderer
                 );
                 if (texture != null)
                 {
-                    // Cache the texture
+                    // Ensure texture is readable - like DirectSpriteGenerator
+                    texture.Apply();
+
+                    // Verify texture is readable - like DirectSpriteGenerator
+                    if (!texture.isReadable)
+                    {
+                        Debug.LogError(
+                            $"ImageRenderer: Async downloaded texture is not readable from: {imageUrl}"
+                        );
+                        UnityEngine.Object.DestroyImmediate(texture);
+                        onComplete?.Invoke(null);
+                        yield break;
+                    }
+
+                    // Check if we need to upscale the texture - like DirectSpriteGenerator
+                    if (texture.width < maxTextureSize && texture.height < maxTextureSize)
+                    {
+                        Texture2D upscaledTexture = UpscaleTexture(texture, maxTextureSize);
+                        if (upscaledTexture != null)
+                        {
+                            UnityEngine.Object.DestroyImmediate(texture);
+                            texture = upscaledTexture;
+                        }
+                    }
+
+                    // Save image to Resources if nodeId and imageName are provided - like DirectSpriteGenerator
+                    if (!string.IsNullOrEmpty(nodeId) && !string.IsNullOrEmpty(imageName))
+                    {
+                        SpriteSaver.SaveImageToResources(texture, imageName, nodeId);
+                    }
+
+                    // Cache the downloaded image - like DirectSpriteGenerator
                     _downloadedImageCache[imageUrl] = texture;
+
                     Debug.Log(
-                        $"ImageRenderer: Successfully downloaded and cached image from {imageUrl}"
+                        $"ImageRenderer: Successfully downloaded image from: {imageUrl} ({texture.width}x{texture.height}) (Readable: {texture.isReadable})"
                     );
                     onComplete?.Invoke(texture);
                 }

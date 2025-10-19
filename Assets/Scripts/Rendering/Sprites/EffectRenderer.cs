@@ -45,32 +45,29 @@ public static class EffectRenderer
             float offsetX = effect["offset"]?["x"]?.Value<float>() ?? 0f;
             float offsetY = effect["offset"]?["y"]?.Value<float>() ?? 0f;
             float blurRadius = effect["radius"]?.Value<float>() ?? 0f;
-            float spread = effect["spread"]?.Value<float>() ?? 0f;
+            // Note: Not using spread to match DirectSpriteGenerator behavior
 
             switch (effectType)
             {
                 case "DROP_SHADOW":
                 case "INNER_SHADOW":
-                    // Calculate total effect size
-                    float totalSize = blurRadius + spread;
-
-                    // Calculate directional padding based on offset
+                    // Calculate directional padding based on offset - like DirectSpriteGenerator
                     if (offsetX < 0)
                     {
-                        leftPadding = Mathf.Max(leftPadding, Mathf.Abs(offsetX) + totalSize);
+                        leftPadding = Mathf.Max(leftPadding, Mathf.Abs(offsetX) + blurRadius);
                     }
                     else
                     {
-                        rightPadding = Mathf.Max(rightPadding, offsetX + totalSize);
+                        rightPadding = Mathf.Max(rightPadding, offsetX + blurRadius);
                     }
 
                     if (offsetY < 0)
                     {
-                        topPadding = Mathf.Max(topPadding, Mathf.Abs(offsetY) + totalSize);
+                        topPadding = Mathf.Max(topPadding, Mathf.Abs(offsetY) + blurRadius);
                     }
                     else
                     {
-                        bottomPadding = Mathf.Max(bottomPadding, offsetY + totalSize);
+                        bottomPadding = Mathf.Max(bottomPadding, offsetY + blurRadius);
                     }
                     break;
 

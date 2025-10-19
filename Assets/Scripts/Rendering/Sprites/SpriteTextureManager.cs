@@ -136,64 +136,42 @@ public static class SpriteTextureManager
         Vector4 padding
     )
     {
-        // Find actual content bounds by scanning for non-transparent pixels
-        int minX = textureWidth;
-        int maxX = 0;
-        int minY = textureHeight;
-        int maxY = 0;
+        // Start with the main content area - like DirectSpriteGenerator
+        int contentX = offsetX;
+        int contentY = offsetY;
+        int contentWidthInt = (int)contentWidth;
+        int contentHeightInt = (int)contentHeight;
 
-        bool foundContent = false;
+        // Expand bounds to include any visible pixels (like drop shadows)
+        // Use directional padding to determine initial bounds - like DirectSpriteGenerator
+        int minX = Mathf.Max(0, contentX - (int)padding.x);
+        int maxX = Mathf.Min(textureWidth, contentX + contentWidthInt + (int)padding.y);
+        int minY = Mathf.Max(0, contentY - (int)padding.z);
+        int maxY = Mathf.Min(textureHeight, contentY + contentHeightInt + (int)padding.w);
 
+        // Scan for non-transparent pixels to find actual bounds - like DirectSpriteGenerator
         for (int y = 0; y < textureHeight; y++)
         {
             for (int x = 0; x < textureWidth; x++)
             {
-                int pixelIndex = y * textureWidth + x;
-                if (pixelIndex < pixels.Length && pixels[pixelIndex].a > 0)
+                int index = y * textureWidth + x;
+                if (index < pixels.Length && pixels[index].a > 0.01f) // Non-transparent pixel
                 {
-                    foundContent = true;
                     minX = Mathf.Min(minX, x);
-                    maxX = Mathf.Max(maxX, x);
+                    maxX = Mathf.Max(maxX, x + 1);
                     minY = Mathf.Min(minY, y);
-                    maxY = Mathf.Max(maxY, y);
+                    maxY = Mathf.Max(maxY, y + 1);
                 }
             }
         }
 
-        // If no content found, use expected bounds (clamped to texture size)
-        if (!foundContent)
-        {
-            minX = Mathf.Clamp(offsetX, 0, textureWidth - 1);
-            maxX = Mathf.Clamp(offsetX + (int)contentWidth, 0, textureWidth);
-            minY = Mathf.Clamp(offsetY, 0, textureHeight - 1);
-            maxY = Mathf.Clamp(offsetY + (int)contentHeight, 0, textureHeight);
-        }
+        // Ensure bounds are within texture - like DirectSpriteGenerator
+        minX = Mathf.Clamp(minX, 0, textureWidth);
+        minY = Mathf.Clamp(minY, 0, textureHeight);
+        maxX = Mathf.Clamp(maxX, minX + 1, textureWidth);
+        maxY = Mathf.Clamp(maxY, minY + 1, textureHeight);
 
-        // Ensure bounds are within texture limits
-        minX = Mathf.Clamp(minX, 0, textureWidth - 1);
-        maxX = Mathf.Clamp(maxX, 0, textureWidth);
-        minY = Mathf.Clamp(minY, 0, textureHeight - 1);
-        maxY = Mathf.Clamp(maxY, 0, textureHeight);
-
-        // Ensure min values are less than max values
-        if (minX >= maxX)
-            maxX = minX + 1;
-        if (minY >= maxY)
-            maxY = minY + 1;
-
-        // Convert to Unity's coordinate system (Y is flipped)
-        float boundsX = minX;
-        float boundsY = textureHeight - maxY; // Flip Y coordinate
-        float boundsWidth = maxX - minX;
-        float boundsHeight = maxY - minY;
-
-        // Final validation
-        boundsWidth = Mathf.Clamp(boundsWidth, 1, textureWidth);
-        boundsHeight = Mathf.Clamp(boundsHeight, 1, textureHeight);
-        boundsX = Mathf.Clamp(boundsX, 0, textureWidth - boundsWidth);
-        boundsY = Mathf.Clamp(boundsY, 0, textureHeight - boundsHeight);
-
-        return new Rect(boundsX, boundsY, boundsWidth, boundsHeight);
+        return new Rect(minX, minY, maxX - minX, maxY - minY);
     }
 
     /// <summary>
