@@ -12,39 +12,39 @@ using UnityEditor;
 public static class SpriteSaver
 {
     /// <summary>
-    /// Saves a sprite to the Resources folder
+    /// Saves a sprite to the Resources folder and returns the resource path
     /// </summary>
     /// <param name="sprite">Sprite to save</param>
     /// <param name="spriteName">Name for the sprite file</param>
-    /// <param name="nodeId">Node ID for organizing files</param>
-    /// <returns>True if save was successful</returns>
-    public static bool SaveSpriteToResources(Sprite sprite, string spriteName, string nodeId)
+    /// <param name="mainNodeId">Main node ID from config for organizing files</param>
+    /// <returns>Resource path if save was successful, null otherwise</returns>
+    public static string SaveSpriteToResources(Sprite sprite, string spriteName, string mainNodeId)
     {
         if (sprite == null || sprite.texture == null)
         {
             Debug.LogError("SpriteSaver: Cannot save null sprite or sprite with null texture");
-            return false;
+            return null;
         }
 
-        if (string.IsNullOrEmpty(spriteName) || string.IsNullOrEmpty(nodeId))
+        if (string.IsNullOrEmpty(spriteName) || string.IsNullOrEmpty(mainNodeId))
         {
-            Debug.LogError("SpriteSaver: Sprite name and node ID cannot be null or empty");
-            return false;
+            Debug.LogError("SpriteSaver: Sprite name and main node ID cannot be null or empty");
+            return null;
         }
 
         try
         {
             // Sanitize names for file system
             string sanitizedSpriteName = SanitizeFileName(spriteName);
-            string sanitizedNodeId = nodeId.Replace(":", "-");
+            string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create directory path
-            string folderPath = CreateSpriteDirectory(sanitizedNodeId);
+            string folderPath = CreateSpriteDirectory(sanitizedMainNodeId);
             if (string.IsNullOrEmpty(folderPath))
-                return false;
+                return null;
 
             // Create file path
-            string fileName = $"{sanitizedSpriteName}{SpriteGenerationConstants.SPRITE_EXTENSION}";
+            string fileName = $"{sanitizedSpriteName}.png";
             string filePath = Path.Combine(folderPath, fileName);
 
             // Crop texture to sprite bounds to remove padding
@@ -52,7 +52,7 @@ public static class SpriteSaver
             if (croppedTexture == null)
             {
                 Debug.LogWarning($"SpriteSaver: Failed to crop sprite {spriteName}");
-                return false;
+                return null;
             }
 
             // Encode cropped texture to PNG
@@ -62,25 +62,49 @@ public static class SpriteSaver
                 File.WriteAllBytes(filePath, pngData);
 
 #if UNITY_EDITOR
+                // Get asset path (relative to Assets folder)
+                string assetPath =
+                    $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{fileName}";
+
+                // Refresh and configure the texture import settings
+                AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+
+                // Configure as sprite
+                TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+                if (importer != null)
+                {
+                    importer.textureType = TextureImporterType.Sprite;
+                    importer.spriteImportMode = SpriteImportMode.Single;
+                    importer.mipmapEnabled = false;
+                    importer.filterMode = FilterMode.Bilinear;
+                    importer.textureCompression = TextureImporterCompression.Uncompressed;
+                    importer.maxTextureSize = 2048;
+
+                    EditorUtility.SetDirty(importer);
+                    importer.SaveAndReimport();
+                }
+
                 AssetDatabase.Refresh();
 #endif
                 Debug.Log($"✓ SpriteSaver: Saved sprite to Resources: {fileName} at {filePath}");
 
                 // Clean up cropped texture
                 UnityEngine.Object.DestroyImmediate(croppedTexture);
-                return true;
+
+                // Return resource path
+                return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
             }
             else
             {
                 Debug.LogWarning($"SpriteSaver: Failed to encode sprite {spriteName} to PNG");
                 UnityEngine.Object.DestroyImmediate(croppedTexture);
-                return false;
+                return null;
             }
         }
         catch (Exception ex)
         {
             Debug.LogError($"SpriteSaver: Error saving sprite {spriteName}: {ex.Message}");
-            return false;
+            return null;
         }
     }
 
@@ -89,9 +113,9 @@ public static class SpriteSaver
     /// </summary>
     /// <param name="texture">Texture to save</param>
     /// <param name="imageName">Name for the image file</param>
-    /// <param name="nodeId">Node ID for organizing files</param>
+    /// <param name="mainNodeId">Main node ID from config for organizing files</param>
     /// <returns>True if save was successful</returns>
-    public static bool SaveImageToResources(Texture2D texture, string imageName, string nodeId)
+    public static bool SaveImageToResources(Texture2D texture, string imageName, string mainNodeId)
     {
         if (texture == null)
         {
@@ -99,9 +123,9 @@ public static class SpriteSaver
             return false;
         }
 
-        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(nodeId))
+        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(mainNodeId))
         {
-            Debug.LogError("SpriteSaver: Image name and node ID cannot be null or empty");
+            Debug.LogError("SpriteSaver: Image name and main node ID cannot be null or empty");
             return false;
         }
 
@@ -109,15 +133,15 @@ public static class SpriteSaver
         {
             // Sanitize names for file system
             string sanitizedImageName = SanitizeFileName(imageName);
-            string sanitizedNodeId = nodeId.Replace(":", "-");
+            string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create directory path
-            string folderPath = CreateSpriteDirectory(sanitizedNodeId);
+            string folderPath = CreateSpriteDirectory(sanitizedMainNodeId);
             if (string.IsNullOrEmpty(folderPath))
                 return false;
 
             // Create file path
-            string fileName = $"{sanitizedImageName}{SpriteGenerationConstants.SPRITE_EXTENSION}";
+            string fileName = $"{sanitizedImageName}.png";
             string filePath = Path.Combine(folderPath, fileName);
 
             // Encode texture to PNG
@@ -149,13 +173,13 @@ public static class SpriteSaver
     /// Loads a sprite from the Resources folder
     /// </summary>
     /// <param name="imageName">Name of the image file</param>
-    /// <param name="nodeId">Node ID for file organization</param>
+    /// <param name="mainNodeId">Main node ID from config for file organization</param>
     /// <returns>Loaded sprite or null if not found</returns>
-    public static Sprite LoadSpriteFromResources(string imageName, string nodeId)
+    public static Sprite LoadSpriteFromResources(string imageName, string mainNodeId)
     {
-        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(nodeId))
+        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(mainNodeId))
         {
-            Debug.LogWarning("SpriteSaver: Image name and node ID cannot be null or empty");
+            Debug.LogWarning("SpriteSaver: Image name and main node ID cannot be null or empty");
             return null;
         }
 
@@ -163,11 +187,11 @@ public static class SpriteSaver
         {
             // Sanitize names
             string sanitizedImageName = SanitizeFileName(imageName);
-            string sanitizedNodeId = nodeId.Replace(":", "-");
+            string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create resource path
             string resourcePath =
-                $"{SpriteGenerationConstants.SAVE_IMAGE_FOLDER}/{sanitizedNodeId}/{sanitizedImageName}";
+                $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedImageName}";
 
             // Load sprite from Resources
             Sprite sprite = Resources.Load<Sprite>(resourcePath);
@@ -281,18 +305,18 @@ public static class SpriteSaver
     /// <summary>
     /// Creates a directory for sprite storage
     /// </summary>
-    /// <param name="nodeId">Node ID for directory name</param>
+    /// <param name="mainNodeId">Main node ID from config for directory name</param>
     /// <returns>Created directory path or null if failed</returns>
-    private static string CreateSpriteDirectory(string nodeId)
+    private static string CreateSpriteDirectory(string mainNodeId)
     {
         try
         {
             // Create directory path
             string folderPath = Path.Combine(
                 Application.dataPath,
-                SpriteGenerationConstants.RESOURCES_FOLDER,
-                SpriteGenerationConstants.SAVE_IMAGE_FOLDER,
-                nodeId
+                Constant.RESOURCES_FOLDER,
+                Constant.SAVE_IMAGE_FOLDER,
+                mainNodeId
             );
 
             // Create directory if it doesn't exist
@@ -307,7 +331,7 @@ public static class SpriteSaver
         catch (Exception ex)
         {
             Debug.LogError(
-                $"SpriteSaver: Error creating directory for node {nodeId}: {ex.Message}"
+                $"SpriteSaver: Error creating directory for main node {mainNodeId}: {ex.Message}"
             );
             return null;
         }
@@ -362,22 +386,22 @@ public static class SpriteSaver
     /// Checks if a sprite exists in Resources
     /// </summary>
     /// <param name="imageName">Name of the image file</param>
-    /// <param name="nodeId">Node ID for file organization</param>
+    /// <param name="mainNodeId">Main node ID from config for file organization</param>
     /// <returns>True if sprite exists</returns>
-    public static bool SpriteExistsInResources(string imageName, string nodeId)
+    public static bool SpriteExistsInResources(string imageName, string mainNodeId)
     {
-        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(nodeId))
+        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(mainNodeId))
             return false;
 
         try
         {
             // Sanitize names
             string sanitizedImageName = SanitizeFileName(imageName);
-            string sanitizedNodeId = nodeId.Replace(":", "-");
+            string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create resource path
             string resourcePath =
-                $"{SpriteGenerationConstants.SAVE_IMAGE_FOLDER}/{sanitizedNodeId}/{sanitizedImageName}";
+                $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedImageName}";
 
             // Check if sprite exists
             Sprite sprite = Resources.Load<Sprite>(resourcePath);
@@ -396,13 +420,13 @@ public static class SpriteSaver
     /// Deletes a sprite from Resources
     /// </summary>
     /// <param name="imageName">Name of the image file</param>
-    /// <param name="nodeId">Node ID for file organization</param>
+    /// <param name="mainNodeId">Main node ID from config for file organization</param>
     /// <returns>True if deletion was successful</returns>
-    public static bool DeleteSpriteFromResources(string imageName, string nodeId)
+    public static bool DeleteSpriteFromResources(string imageName, string mainNodeId)
     {
-        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(nodeId))
+        if (string.IsNullOrEmpty(imageName) || string.IsNullOrEmpty(mainNodeId))
         {
-            Debug.LogWarning("SpriteSaver: Image name and node ID cannot be null or empty");
+            Debug.LogWarning("SpriteSaver: Image name and main node ID cannot be null or empty");
             return false;
         }
 
@@ -410,17 +434,17 @@ public static class SpriteSaver
         {
             // Sanitize names
             string sanitizedImageName = SanitizeFileName(imageName);
-            string sanitizedNodeId = nodeId.Replace(":", "-");
+            string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create file path
             string folderPath = Path.Combine(
                 Application.dataPath,
-                SpriteGenerationConstants.RESOURCES_FOLDER,
-                SpriteGenerationConstants.SAVE_IMAGE_FOLDER,
-                sanitizedNodeId
+                Constant.RESOURCES_FOLDER,
+                Constant.SAVE_IMAGE_FOLDER,
+                sanitizedMainNodeId
             );
 
-            string fileName = $"{sanitizedImageName}{SpriteGenerationConstants.SPRITE_EXTENSION}";
+            string fileName = $"{sanitizedImageName}.png";
             string filePath = Path.Combine(folderPath, fileName);
 
             // Delete file if it exists
@@ -448,29 +472,29 @@ public static class SpriteSaver
     }
 
     /// <summary>
-    /// Clears all sprites for a specific node ID
+    /// Clears all sprites for a specific main node ID
     /// </summary>
-    /// <param name="nodeId">Node ID to clear</param>
+    /// <param name="mainNodeId">Main node ID from config to clear</param>
     /// <returns>Number of files deleted</returns>
-    public static int ClearSpritesForNode(string nodeId)
+    public static int ClearSpritesForNode(string mainNodeId)
     {
-        if (string.IsNullOrEmpty(nodeId))
+        if (string.IsNullOrEmpty(mainNodeId))
         {
-            Debug.LogWarning("SpriteSaver: Node ID cannot be null or empty");
+            Debug.LogWarning("SpriteSaver: Main node ID cannot be null or empty");
             return 0;
         }
 
         try
         {
             // Sanitize node ID
-            string sanitizedNodeId = nodeId.Replace(":", "-");
+            string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create directory path
             string folderPath = Path.Combine(
                 Application.dataPath,
-                SpriteGenerationConstants.RESOURCES_FOLDER,
-                SpriteGenerationConstants.SAVE_IMAGE_FOLDER,
-                sanitizedNodeId
+                Constant.RESOURCES_FOLDER,
+                Constant.SAVE_IMAGE_FOLDER,
+                sanitizedMainNodeId
             );
 
             if (!Directory.Exists(folderPath))
@@ -480,10 +504,7 @@ public static class SpriteSaver
             }
 
             // Get all PNG files in the directory
-            string[] files = Directory.GetFiles(
-                folderPath,
-                $"*{SpriteGenerationConstants.SPRITE_EXTENSION}"
-            );
+            string[] files = Directory.GetFiles(folderPath, "*.png");
 
             int deletedCount = 0;
             foreach (string file in files)
@@ -509,12 +530,14 @@ public static class SpriteSaver
 #if UNITY_EDITOR
             AssetDatabase.Refresh();
 #endif
-            Debug.Log($"SpriteSaver: Cleared {deletedCount} sprites for node {nodeId}");
+            Debug.Log($"SpriteSaver: Cleared {deletedCount} sprites for main node {mainNodeId}");
             return deletedCount;
         }
         catch (Exception ex)
         {
-            Debug.LogError($"SpriteSaver: Error clearing sprites for node {nodeId}: {ex.Message}");
+            Debug.LogError(
+                $"SpriteSaver: Error clearing sprites for main node {mainNodeId}: {ex.Message}"
+            );
             return 0;
         }
     }

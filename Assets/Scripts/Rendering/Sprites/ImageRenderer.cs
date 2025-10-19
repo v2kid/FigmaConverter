@@ -411,14 +411,14 @@ public static class ImageRenderer
     /// <param name="imageUrl">URL of the image to download</param>
     /// <param name="onComplete">Callback when download is complete</param>
     /// <param name="maxTextureSize">Maximum texture size for high resolution</param>
-    /// <param name="nodeId">Node ID for saving to Resources</param>
+    /// <param name="mainNodeId">Main node ID from config for saving to Resources</param>
     /// <param name="imageName">Image name for saving to Resources</param>
     /// <returns>Coroutine for the download</returns>
     public static IEnumerator DownloadImageFromUrlAsync(
         string imageUrl,
         System.Action<Texture2D> onComplete,
         int maxTextureSize = 2048,
-        string nodeId = null,
+        string mainNodeId = null,
         string imageName = null
     )
     {
@@ -480,10 +480,10 @@ public static class ImageRenderer
                         }
                     }
 
-                    // Save image to Resources if nodeId and imageName are provided - like DirectSpriteGenerator
-                    if (!string.IsNullOrEmpty(nodeId) && !string.IsNullOrEmpty(imageName))
+                    // Save image to Resources if mainNodeId and imageName are provided - like DirectSpriteGenerator
+                    if (!string.IsNullOrEmpty(mainNodeId) && !string.IsNullOrEmpty(imageName))
                     {
-                        SpriteSaver.SaveImageToResources(texture, imageName, nodeId);
+                        SpriteSaver.SaveImageToResources(texture, imageName, mainNodeId);
                     }
 
                     // Cache the downloaded image - like DirectSpriteGenerator

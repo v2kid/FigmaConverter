@@ -267,7 +267,7 @@ public class UIElementFactory
         {
 #if UNITY_EDITOR
             // Save the generated sprite as a persistent asset
-            string savedPath = SpriteSaveUtility.SaveSpriteToResources(
+            string savedPath = SpriteSaver.SaveSpriteToResources(
                 generatedSprite,
                 sanitizedName,
                 _config.targetNodeId

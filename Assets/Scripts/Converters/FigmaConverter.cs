@@ -15,7 +15,7 @@ using UnityEditor;
 /// Main Figma to Unity converter - Refactored with service-based architecture
 /// Replaces FigmaSimpleConverter with better performance and maintainability
 /// </summary>
-public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
+public class FigmaConverter : MonoBehaviour
 {
     [SerializeField]
     private FigmaConverterConfig config = new FigmaConverterConfig();
@@ -115,8 +115,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
 
     #region Public API
 
-    [ContextMenu("Extract IDs from URL")]
-    public void ExtractIdsFromUrl()
+    private void ExtractIdsFromUrl()
     {
         if (string.IsNullOrEmpty(figmaUrl))
         {
@@ -155,25 +154,6 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
         StartCoroutine(DownloadAndConvertCoroutine());
     }
 
-    [ContextMenu("Convert to UI")]
-    public void ConvertNodeToUI()
-    {
-        if (_currentNodeData == null)
-        {
-            Debug.LogError("No node data available. Please download data first.");
-            return;
-        }
-
-        if (string.IsNullOrEmpty(config.nodeId))
-        {
-            Debug.LogError("Node ID is not set!");
-            return;
-        }
-
-        InitializeServices();
-        StartCoroutine(ConvertNodeCoroutine());
-    }
-
     [ContextMenu("Generate Prefabs")]
     public void GeneratePrefab()
     {
@@ -210,31 +190,6 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
 #endif
     }
 
-    [ContextMenu("Test Image Fills")]
-    public void TestImageFills()
-    {
-        if (_currentNodeData == null)
-        {
-            Debug.LogError("No node data available. Please download data first.");
-            return;
-        }
-
-        List<string> imageRefs = CollectImageRefs(_currentNodeData);
-        if (imageRefs.Count == 0)
-        {
-            Debug.Log("No image fills found in current node data.");
-            return;
-        }
-
-        Debug.Log($"Found {imageRefs.Count} image fills: {string.Join(", ", imageRefs)}");
-        Debug.Log($"Cached image fills: {_imageFillsCache.Count}");
-
-        foreach (var kvp in _imageFillsCache)
-        {
-            Debug.Log($"  - {kvp.Key}: {kvp.Value?.Length ?? 0} characters");
-        }
-    }
-
     #endregion
 
     #region Download Operations
@@ -243,7 +198,8 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
     {
         yield return DownloadNodeData();
         yield return DownloadImages();
-        ConvertNodeToUI();
+        InitializeServices();
+        StartCoroutine(ConvertNodeCoroutine());
 
         // Log performance stats
         if (config.enableDebugLogs)
@@ -463,7 +419,7 @@ public class FigmaConverter : MonoBehaviour, IFigmaNodeConverter
         // Save downloaded images
         string resourcesSpritesPath = Path.Combine(
             Application.dataPath,
-            "Resources",
+            Constant.RESOURCES_FOLDER,
             Constant.SAVE_IMAGE_FOLDER,
             config.nodeId.Replace(":", "-")
         );

@@ -106,7 +106,7 @@ public class SpriteTestGenerator : MonoBehaviour
             // Save to Resources if enabled
             if (saveToResources)
             {
-                string savedPath = SpriteSaveUtility.SaveSpriteToResources(
+                string savedPath = SpriteSaver.SaveSpriteToResources(
                     sprite,
                     spriteName,
                     "test-node"

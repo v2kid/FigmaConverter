@@ -114,10 +114,9 @@ public static class SpriteGenerator
             }
 
             // Step 10: Save sprite to Resources using SpriteSaver
-            string nodeId = nodeData["id"]?.ToString();
-            if (!string.IsNullOrEmpty(nodeId))
+            if (!string.IsNullOrEmpty(mainNodeId))
             {
-                SpriteSaver.SaveSpriteToResources(sprite, nodeName, nodeId);
+                SpriteSaver.SaveSpriteToResources(sprite, nodeName, mainNodeId);
             }
 
             return sprite;
@@ -171,7 +170,7 @@ public static class SpriteGenerator
                             if (downloadedTexture != null)
                             {
                                 // Try to load sprite from Resources first
-                                Sprite savedSprite = LoadSpriteFromResources(nodeName, nodeId);
+                                Sprite savedSprite = LoadSpriteFromResources(nodeName, mainNodeId);
                                 if (savedSprite != null)
                                 {
                                     onComplete?.Invoke(savedSprite);
@@ -329,14 +328,14 @@ public static class SpriteGenerator
     /// <param name="imageUrl">URL of the image to download</param>
     /// <param name="onComplete">Callback when download is complete</param>
     /// <param name="maxTextureSize">Maximum texture size for high resolution</param>
-    /// <param name="nodeId">Node ID for saving to Resources</param>
+    /// <param name="mainNodeId">Main node ID from config for saving to Resources</param>
     /// <param name="imageName">Image name for saving to Resources</param>
     /// <returns>Coroutine for the download</returns>
     public static IEnumerator DownloadImageFromUrlAsync(
         string imageUrl,
         System.Action<Texture2D> onComplete,
         int maxTextureSize = 2048,
-        string nodeId = null,
+        string mainNodeId = null,
         string imageName = null
     )
     {
@@ -344,7 +343,7 @@ public static class SpriteGenerator
             imageUrl,
             onComplete,
             maxTextureSize,
-            nodeId,
+            mainNodeId,
             imageName
         );
     }
@@ -353,11 +352,11 @@ public static class SpriteGenerator
     /// Loads a sprite from Resources using SpriteSaver
     /// </summary>
     /// <param name="imageName">Name of the image file</param>
-    /// <param name="nodeId">Node ID for file organization</param>
+    /// <param name="mainNodeId">Main node ID from config for file organization</param>
     /// <returns>Loaded sprite or null if not found</returns>
-    public static Sprite LoadSpriteFromResources(string imageName, string nodeId)
+    public static Sprite LoadSpriteFromResources(string imageName, string mainNodeId)
     {
-        return SpriteSaver.LoadSpriteFromResources(imageName, nodeId);
+        return SpriteSaver.LoadSpriteFromResources(imageName, mainNodeId);
     }
 
     /// <summary>

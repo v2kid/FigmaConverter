@@ -24,8 +24,6 @@ public static class SpriteGenerationConstants
     public const int DEFAULT_SHADOW_BLUR = 0;
 
     // File System Configuration
-    public const string RESOURCES_FOLDER = "Resources";
-    public const string SAVE_IMAGE_FOLDER = "FigmaSprites";
     public const string SPRITE_EXTENSION = ".png";
 
     // Performance Configuration
