@@ -31,6 +31,7 @@ public class FigmaConverterConfig
     public int spriteCacheSize = 100;
     public int nodeCacheSize = 1000;
     public bool enableObjectPooling = true;
+    public bool skipInvisibleItems = true;
 
     // Runtime properties
     [System.NonSerialized]

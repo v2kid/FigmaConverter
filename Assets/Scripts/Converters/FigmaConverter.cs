@@ -397,6 +397,21 @@ public class FigmaConverter : MonoBehaviour
             string nodeId = obj["id"]?.ToString();
             string nodeName = obj["name"]?.ToString();
 
+            // Check visibility if skipInvisibleItems is enabled
+            if (config.skipInvisibleItems)
+            {
+                bool visible = obj["visible"]?.ToObject<bool>() ?? true;
+                if (!visible)
+                {
+                    // Skip this node but still process children
+                    if (obj.TryGetValue("children", out JToken childToken))
+                    {
+                        CollectImageNodeIds(childToken, imageNodeIds);
+                    }
+                    return;
+                }
+            }
+
             if (
                 !string.IsNullOrEmpty(nodeName)
                 && !string.IsNullOrEmpty(nodeId)
@@ -429,6 +444,21 @@ public class FigmaConverter : MonoBehaviour
             var obj = (JObject)token;
             string nodeId = obj["id"]?.ToString();
             string nodeType = obj["type"]?.ToString();
+
+            // Check visibility if skipInvisibleItems is enabled
+            if (config.skipInvisibleItems)
+            {
+                bool visible = obj["visible"]?.ToObject<bool>() ?? true;
+                if (!visible)
+                {
+                    // Skip this node but still process children
+                    if (obj.TryGetValue("children", out JToken childToken))
+                    {
+                        CollectIconFrameIds(childToken, iconFrameIds);
+                    }
+                    return;
+                }
+            }
 
             if (
                 (nodeType == "FRAME" || nodeType == "GROUP" || nodeType == "COMPONENT")
@@ -491,6 +521,17 @@ public class FigmaConverter : MonoBehaviour
         string nodeName = nodeData["name"]?.ToString() ?? "UnnamedNode";
         string nodeType = nodeData["type"]?.ToString();
 
+        // Check visibility and skip processing if skipInvisibleItems is enabled
+        if (config.skipInvisibleItems)
+        {
+            bool visible = nodeData["visible"]?.ToObject<bool>() ?? true;
+            if (!visible)
+            {
+                Debug.Log($"Skipping invisible node: {nodeName} (ID: {nodeId})");
+                return null;
+            }
+        }
+
         if (HasImageFills(nodeData))
         {
             return ProcessNodeWithImageFills(nodeData, parent);
@@ -536,6 +577,17 @@ public class FigmaConverter : MonoBehaviour
         string nodeId = nodeData["id"]?.ToString();
         string nodeName = nodeData["name"]?.ToString() ?? "UnnamedNode";
         string nodeType = nodeData["type"]?.ToString();
+
+        // Check visibility and skip processing if skipInvisibleItems is enabled
+        if (config.skipInvisibleItems)
+        {
+            bool visible = nodeData["visible"]?.ToObject<bool>() ?? true;
+            if (!visible)
+            {
+                Debug.Log($"Skipping invisible node with image fills: {nodeName} (ID: {nodeId})");
+                return null;
+            }
+        }
 
         // Get node dimensions
         float width = nodeData["size"]?["x"]?.ToObject<float>() ?? 100f;
@@ -727,6 +779,21 @@ public class FigmaConverter : MonoBehaviour
         if (token.Type == JTokenType.Object)
         {
             var obj = (JObject)token;
+
+            // Check visibility if skipInvisibleItems is enabled
+            if (config.skipInvisibleItems)
+            {
+                bool visible = obj["visible"]?.ToObject<bool>() ?? true;
+                if (!visible)
+                {
+                    // Skip this node but still process children
+                    if (obj.TryGetValue("children", out JToken childToken))
+                    {
+                        imageRefs.AddRange(CollectImageRefs(childToken));
+                    }
+                    return imageRefs;
+                }
+            }
 
             // Check fills array for image fills
             JArray fills = obj["fills"] as JArray;
