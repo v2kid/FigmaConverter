@@ -6,8 +6,7 @@ public enum FigmaBooleanOperationType
     UNION, // Hợp
     SUBTRACT, // Trừ
     INTERSECT, // Giao
-    EXCLUDE // Loại trừ
-    ,
+    EXCLUDE, // Loại trừ
 }
 
 [Serializable]

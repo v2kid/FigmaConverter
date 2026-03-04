@@ -4,8 +4,6 @@ using System;
 [Serializable]
 public class FigmaDocumentNode : FigmaNode
 {
-    public FigmaNode[] children; // Typically contains CANVAS nodes
-
     public FigmaDocumentNode()
     {
         type = FigmaNodeType.DOCUMENT;
@@ -19,7 +17,6 @@ public class FigmaCanvasNode : FigmaNode
     public FigmaColor backgroundColor;
     public FigmaFlowStartingPoint[] flowStartingPoints;
     public FigmaPrototypeDevice prototypeDevice;
-    public FigmaNode[] children; // Contains FRAME, GROUP, etc.
 
     public FigmaCanvasNode()
     {

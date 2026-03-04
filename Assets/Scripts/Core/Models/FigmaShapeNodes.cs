@@ -81,7 +81,6 @@ public class FigmaPolygonNode : FigmaNode
 public class FigmaBooleanOperationNode : FigmaNode
 {
     public FigmaBooleanOperationType booleanOperation;
-    public FigmaNode[] children; // The shapes being combined
 
     public FigmaBooleanOperationNode()
     {

@@ -36,6 +36,4 @@ public static class FigmaColorParser
 
         return Color.clear;
     }
-
-    // UNUSED: ColorToHex and ColorToRGBA - Not used anywhere in the codebase
 }

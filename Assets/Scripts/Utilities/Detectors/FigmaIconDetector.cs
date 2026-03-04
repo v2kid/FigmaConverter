@@ -54,44 +54,4 @@ public static class FigmaIconDetector
 
         return hasVectorChildren;
     }
-
-    /// <summary>
-    /// Counts the number of vector children in an icon frame
-    /// Useful for logging/debugging
-    /// </summary>
-    public static int CountVectorChildren(JObject iconFrame)
-    {
-        int count = 0;
-
-        JArray children = iconFrame["children"] as JArray;
-        if (children != null)
-        {
-            foreach (JObject child in children)
-            {
-                string childType = child["type"]?.ToString()?.ToUpper();
-
-                if (
-                    childType == "VECTOR"
-                    || childType == "STAR"
-                    || childType == "POLYGON"
-                    || childType == "BOOLEAN_OPERATION"
-                    || childType == "LINE"
-                )
-                {
-                    count++;
-                }
-                else if (childType == "FRAME" || childType == "GROUP" || childType == "COMPONENT")
-                {
-                    if (IsIconFrame(child))
-                    {
-                        count += CountVectorChildren(child);
-                    }
-                }
-            }
-        }
-
-        return count;
-    }
-
-    // UNUSED: GetIconFrameSummary - Not used anywhere in the codebase
 }

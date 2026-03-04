@@ -23,6 +23,97 @@ public class FigmaConverter : MonoBehaviour
     [Header("Figma URL Input")]
     public string figmaUrl = "";
 
+    // ─── Log Capture System ───
+    public enum ConverterLogType { Info, Warning, Error, Success }
+
+    [System.Serializable]
+    public struct LogEntry
+    {
+        public string message;
+        public ConverterLogType type;
+        public string timestamp;
+    }
+
+    private static readonly List<LogEntry> _logs = new List<LogEntry>();
+    private static bool _isRunning;
+    private static float _progress;
+    private static string _progressLabel;
+
+    public static event System.Action OnLogsChanged;
+    public static IReadOnlyList<LogEntry> Logs => _logs;
+    public static bool IsRunning => _isRunning;
+    public static float Progress => _progress;
+    public static string ProgressLabel => _progressLabel;
+
+    public static void ClearLogs() { _logs.Clear(); OnLogsChanged?.Invoke(); }
+
+    // Flag to prevent recursive log capture (Log -> Debug.Log -> OnUnityLog -> Log)
+    private static bool _isLogging;
+
+    /// <summary>
+    /// Start capturing all Debug.Log/LogWarning/LogError calls from any service
+    /// </summary>
+    private static void StartLogCapture()
+    {
+        Application.logMessageReceived -= OnUnityLogMessage;
+        Application.logMessageReceived += OnUnityLogMessage;
+    }
+
+    /// <summary>
+    /// Stop capturing Unity log messages
+    /// </summary>
+    private static void StopLogCapture()
+    {
+        Application.logMessageReceived -= OnUnityLogMessage;
+    }
+
+    private static void OnUnityLogMessage(string message, string stackTrace, UnityEngine.LogType type)
+    {
+        if (_isLogging) return; // Prevent recursion
+
+        ConverterLogType logType;
+        switch (type)
+        {
+            case UnityEngine.LogType.Warning: logType = ConverterLogType.Warning; break;
+            case UnityEngine.LogType.Error:
+            case UnityEngine.LogType.Exception: logType = ConverterLogType.Error; break;
+            default: logType = ConverterLogType.Info; break;
+        }
+
+        // Detect success messages by emoji/prefix
+        if (message.StartsWith("✓") || message.StartsWith("═══"))
+            logType = ConverterLogType.Success;
+
+        _logs.Add(new LogEntry
+        {
+            message = message,
+            type = logType,
+            timestamp = System.DateTime.Now.ToString("HH:mm:ss")
+        });
+        OnLogsChanged?.Invoke();
+    }
+
+    private static void Log(string msg, ConverterLogType type = ConverterLogType.Info)
+    {
+        _isLogging = true;
+        // Forward to Unity Console
+        switch (type)
+        {
+            case ConverterLogType.Warning: Debug.LogWarning(msg); break;
+            case ConverterLogType.Error:   Debug.LogError(msg); break;
+            default:              Debug.Log(msg); break;
+        }
+        _isLogging = false;
+        // Don't add to _logs here — OnUnityLogMessage already captured it
+    }
+
+    private static void SetProgress(float value, string label)
+    {
+        _progress = Mathf.Clamp01(value);
+        _progressLabel = label;
+        OnLogsChanged?.Invoke();
+    }
+
     // Services (created on demand)
     private SpriteCacheService _spriteCache;
     private NodeDataCacheService _nodeCache;
@@ -36,6 +127,7 @@ public class FigmaConverter : MonoBehaviour
     private Dictionary<string, GameObject> _createdNodes = new Dictionary<string, GameObject>();
     private JObject _currentNodeData;
     private bool _servicesInitialized = false;
+    private static int _apiCallCount;
 
     // Image fills cache (imageRef -> base64 data)
     private Dictionary<string, string> _imageFillsCache = new Dictionary<string, string>();
@@ -144,6 +236,11 @@ public class FigmaConverter : MonoBehaviour
     [ContextMenu("Download and Convert Everything")]
     public void DownloadAndConvertEverything()
     {
+        ClearLogs();
+        StartLogCapture();
+        _isRunning = true;
+        _apiCallCount = 0;
+        SetProgress(0f, "Starting...");
         ExtractIdsFromUrl();
         InitializeServices();
         StartCoroutine(DownloadAndConvertCoroutine());
@@ -154,7 +251,7 @@ public class FigmaConverter : MonoBehaviour
     {
         if (_createdNodes.Count == 0)
         {
-            Debug.LogWarning("No UI elements created yet. Please convert Figma data first.");
+            Log("No UI elements created yet. Please convert Figma data first.", ConverterLogType.Warning);
             return;
         }
 
@@ -172,11 +269,12 @@ public class FigmaConverter : MonoBehaviour
                     localPath,
                     InteractionMode.UserAction
                 );
+                Log($"✓ Prefab saved: {localPath}", ConverterLogType.Success);
             }
         }
 
 #else
-        Debug.LogWarning("Prefab generation only works in Unity Editor");
+        Log("Prefab generation only works in Unity Editor", ConverterLogType.Warning);
 #endif
     }
 
@@ -186,11 +284,27 @@ public class FigmaConverter : MonoBehaviour
 
     private IEnumerator DownloadAndConvertCoroutine()
     {
+        SetProgress(0.1f, "Downloading node data...");
         yield return DownloadNodeData();
+
+        SetProgress(0.3f, "Resolving fonts...");
         yield return ResolveFonts();
+
+        SetProgress(0.5f, "Downloading images...");
         yield return DownloadImages();
+
+        SetProgress(0.8f, "Converting to Unity UI...");
         InitializeServices();
-        StartCoroutine(ConvertNodeCoroutine());
+        StartCoroutine(ConvertAndFinish());
+    }
+
+    private IEnumerator ConvertAndFinish()
+    {
+        yield return ConvertNodeCoroutine();
+        SetProgress(1f, "Done!");
+        _isRunning = false;
+        StopLogCapture();
+        Debug.Log($"═══ Conversion Complete — {_createdNodes.Count} nodes created, {_apiCallCount} API calls ═══");
     }
 
     private IEnumerator ResolveFonts()
@@ -222,9 +336,40 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
+        // Check if cached node data exists on disk
+        string sanitizedNodeId = config.nodeId.Replace(":", "-");
+        string cachedFilePath = Path.Combine(
+            Application.dataPath, "Resources", "FigmaData",
+            $"figma_node_{sanitizedNodeId}.json"
+        );
+
+        if (File.Exists(cachedFilePath))
+        {
+            Debug.Log($"⏭ Node data found on disk, loading from cache: {cachedFilePath}");
+            string cachedJson = File.ReadAllText(cachedFilePath);
+
+            if (!string.IsNullOrEmpty(cachedJson))
+            {
+                JObject root = JObject.Parse(cachedJson);
+                _currentNodeData = root["nodes"]?[config.nodeId]?["document"] as JObject;
+
+                if (_currentNodeData != null)
+                {
+                    _nodeCache.IndexNodeTree(_currentNodeData);
+                    Debug.Log("✓ Node data loaded from disk cache. No API call needed!");
+                    yield break;
+                }
+            }
+
+            Debug.LogWarning("Cached file exists but could not parse. Falling back to API...");
+        }
+
+        // No cache — download from API
         string encodedNodeId = UnityEngine.Networking.UnityWebRequest.EscapeURL(config.nodeId);
         string url = $"https://api.figma.com/v1/files/{config.fileId}/nodes?ids={encodedNodeId}";
 
+        Debug.Log("📡 API Call: Downloading node data...");
+        _apiCallCount++;
         using (var www = UnityEngine.Networking.UnityWebRequest.Get(url))
         {
             www.SetRequestHeader("X-FIGMA-TOKEN", Secrets.FIGMA_TOKEN);
@@ -244,9 +389,7 @@ public class FigmaConverter : MonoBehaviour
 
                 if (_currentNodeData != null)
                 {
-                    // Index the node tree for fast lookup
                     _nodeCache.IndexNodeTree(_currentNodeData);
-
                     SaveNodeDataToResources(jsonContent);
                 }
                 else
@@ -281,7 +424,8 @@ public class FigmaConverter : MonoBehaviour
     }
 
     /// <summary>
-    /// Downloads image fills using FigmaApi.GetImageFillsAsync and stores them in cache
+    /// Downloads image fills using FigmaApi.GetImageFillsAsync and stores them in cache.
+    /// Skips imageRefs that already have sprites saved on disk.
     /// </summary>
     private IEnumerator DownloadImageFills()
     {
@@ -299,11 +443,56 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
-        // Download image fills using FigmaApi
+        // Pre-check: filter out imageRefs whose sprites already exist on disk
+        string resourcesSpritesPath = Path.Combine(
+            Application.dataPath,
+            Constant.RESOURCES_FOLDER,
+            Constant.SAVE_IMAGE_FOLDER,
+            config.nodeId.Replace(":", "-")
+        );
+        EnsureDirectory(resourcesSpritesPath);
+
+        List<string> refsToDownload = new List<string>();
+        int alreadyExistCount = 0;
+
+        foreach (string imageRef in imageRefs)
+        {
+            // Check if any file on disk contains this imageRef as part of its name
+            string refFileName = imageRef.SanitizeFileName();
+            string filePath = Path.Combine(resourcesSpritesPath, $"{refFileName}.png");
+
+            if (File.Exists(filePath))
+            {
+                alreadyExistCount++;
+                // Load existing image into cache from disk
+                byte[] existingData = File.ReadAllBytes(filePath);
+                _imageFillsCache[imageRef] = ImageRenderer.ConvertImageDataToBase64(existingData);
+                Debug.Log($"⏭ Image fill already on disk, loaded from cache: {refFileName}");
+            }
+            else
+            {
+                refsToDownload.Add(imageRef);
+            }
+        }
+
+        if (alreadyExistCount > 0)
+        {
+            Debug.Log($"✓ Skipped {alreadyExistCount} image fills (already on disk). Downloading {refsToDownload.Count} remaining.");
+        }
+
+        if (refsToDownload.Count == 0)
+        {
+            Debug.Log("✓ All image fills already exist. No API calls needed!");
+            yield break;
+        }
+
+        // Download only missing image fills using FigmaApi
+        Debug.Log($"📡 API Call: Downloading {refsToDownload.Count} image fills...");
+        _apiCallCount++;
         var figmaApi = new FigmaApi(Secrets.FIGMA_TOKEN);
         var imageFillsRequest = new ImageFillsRequest(config.fileId)
         {
-            imageRefs = imageRefs.ToArray(),
+            imageRefs = refsToDownload.ToArray(),
         };
 
         Task<Dictionary<string, byte[]>> task = figmaApi.GetImageFillsAsync(
@@ -387,6 +576,8 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
+        Debug.Log($"📡 API Call: Downloading {idsToDownload.Count} icon images...");
+        _apiCallCount++;
         var figmaApi = new FigmaApi(Secrets.FIGMA_TOKEN);
         var imageRequest = new ImageRequest(config.fileId)
         {
@@ -734,28 +925,6 @@ public class FigmaConverter : MonoBehaviour
             new Vector2(0.5f, 0.5f)
         );
 
-        // if (sprite != null && imageComponent != null)
-        // {
-        //     imageComponent.sprite = sprite;
-        //     // Save sprite to Resources for future use
-        //     if (!string.IsNullOrEmpty(config.nodeId))
-        //     {
-        //         SpriteSaver.SaveSpriteToResources(sprite, nodeName, config.nodeId);
-        //     }
-        // }
-        // else
-        // {
-        //     if (sprite == null)
-        //     {
-        //         Debug.LogError($"Failed to create sprite for {nodeName} - sprite is null");
-        //     }
-        //     if (imageComponent == null)
-        //     {
-        //         Debug.LogError($"Failed to assign sprite for {nodeName} - imageComponent is null");
-        //     }
-        // }
-        // ... (Code tạo Sprite và SaveSpriteToResources)
-
         if (sprite != null && imageComponent != null)
         {
             // 1. Gán Sprite TẠM THỜI (được tạo tại runtime) vào Image component
@@ -778,8 +947,11 @@ public class FigmaConverter : MonoBehaviour
                         // 3. Cập nhật Image component để trỏ đến Sprite asset ĐÃ LƯU
                         imageComponent.sprite = savedSprite;
 
-                        // Tùy chọn: Xóa Sprite tạm thời đã tạo lúc đầu (vì Image component đã trỏ sang cái mới)
-                        UnityEngine.Object.Destroy(sprite);
+                        // Xóa Sprite tạm thời (edit mode cần dùng DestroyImmediate)
+                        if (Application.isPlaying)
+                            UnityEngine.Object.Destroy(sprite);
+                        else
+                            UnityEngine.Object.DestroyImmediate(sprite);
 
                         Debug.Log($"Successfully replaced temporary sprite with Resources asset: {resourcePath}");
                     }

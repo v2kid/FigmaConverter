@@ -11,96 +11,6 @@ using UnityEditor;
 /// </summary>
 public static class SpriteSaver
 {
-    //     public static string SaveSpriteToResources(Sprite sprite, string spriteName, string mainNodeId)
-    //     {
-    //         if (sprite == null || sprite.texture == null)
-    //         {
-    //             Debug.LogError("SpriteSaver: Cannot save null sprite or sprite with null texture");
-    //             return null;
-    //         }
-
-    //         if (string.IsNullOrEmpty(spriteName) || string.IsNullOrEmpty(mainNodeId))
-    //         {
-    //             Debug.LogError("SpriteSaver: Sprite name and main node ID cannot be null or empty");
-    //             return null;
-    //         }
-
-    //         try
-    //         {
-    //             // Sanitize names for file system
-    //             string sanitizedSpriteName = SanitizeFileName(spriteName);
-    //             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
-
-    //             // Create directory path
-    //             string folderPath = CreateSpriteDirectory(sanitizedMainNodeId);
-    //             if (string.IsNullOrEmpty(folderPath))
-    //                 return null;
-
-    //             // Create file path
-    //             string fileName = $"{sanitizedSpriteName}.png";
-    //             string filePath = Path.Combine(folderPath, fileName);
-
-    //             // Crop texture to sprite bounds to remove padding
-    //             Texture2D croppedTexture = CropTextureToSpriteBounds(sprite);
-    //             if (croppedTexture == null)
-    //             {
-    //                 Debug.LogWarning($"SpriteSaver: Failed to crop sprite {spriteName}");
-    //                 return null;
-    //             }
-
-    //             // Encode cropped texture to PNG
-    //             byte[] pngData = croppedTexture.EncodeToPNG();
-    //             if (pngData != null && pngData.Length > 0)
-    //             {
-    //                 File.WriteAllBytes(filePath, pngData);
-
-    // #if UNITY_EDITOR
-    //                 // Get asset path (relative to Assets folder)
-    //                 string assetPath =
-    //                     $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{fileName}";
-
-    //                 // Refresh and configure the texture import settings
-    //                 AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-
-    //                 // Configure as sprite
-    //                 TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
-    //                 if (importer != null)
-    //                 {
-    //                     importer.textureType = TextureImporterType.Sprite;
-    //                     importer.spriteImportMode = SpriteImportMode.Single;
-    //                     importer.mipmapEnabled = false;
-    //                     importer.filterMode = FilterMode.Bilinear;
-    //                     importer.textureCompression = TextureImporterCompression.Uncompressed;
-    //                     importer.maxTextureSize = 2048;
-
-    //                     EditorUtility.SetDirty(importer);
-    //                     importer.SaveAndReimport();
-    //                 }
-
-    //                 AssetDatabase.Refresh();
-    // #endif
-    //                 Debug.Log($"✓ SpriteSaver: Saved sprite to Resources: {fileName} at {filePath}");
-
-    //                 // Clean up cropped texture
-    //                 UnityEngine.Object.DestroyImmediate(croppedTexture);
-
-    //                 // Return resource path
-    //                 return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
-    //             }
-    //             else
-    //             {
-    //                 Debug.LogWarning($"SpriteSaver: Failed to encode sprite {spriteName} to PNG");
-    //                 UnityEngine.Object.DestroyImmediate(croppedTexture);
-    //                 return null;
-    //             }
-    //         }
-    //         catch (Exception ex)
-    //         {
-    //             Debug.LogError($"SpriteSaver: Error saving sprite {spriteName}: {ex.Message}");
-    //             return null;
-    //         }
-    //     }
-
     public static string SaveSpriteToResources(Sprite sprite, string spriteName, string mainNodeId)
     {
         if (sprite == null || sprite.texture == null)
@@ -118,7 +28,7 @@ public static class SpriteSaver
         try
         {
             // Sanitize names for file system
-            string sanitizedSpriteName = SanitizeFileName(spriteName);
+            string sanitizedSpriteName = spriteName.SanitizeFileName();
             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create directory path
@@ -216,7 +126,7 @@ public static class SpriteSaver
         try
         {
             // Sanitize names for file system
-            string sanitizedImageName = SanitizeFileName(imageName);
+            string sanitizedImageName = imageName.SanitizeFileName();
             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create directory path
@@ -270,7 +180,7 @@ public static class SpriteSaver
         try
         {
             // Sanitize names
-            string sanitizedImageName = SanitizeFileName(imageName);
+            string sanitizedImageName = imageName.SanitizeFileName();
             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create resource path
@@ -421,50 +331,7 @@ public static class SpriteSaver
         }
     }
 
-    /// <summary>
-    /// Sanitizes a filename by removing invalid characters
-    /// </summary>
-    /// <param name="fileName">Original filename</param>
-    /// <returns>Sanitized filename</returns>
-    private static string SanitizeFileName(string fileName)
-    {
-        if (string.IsNullOrEmpty(fileName))
-            return "unnamed";
 
-        // Remove invalid characters for file names
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        string sanitized = fileName;
-
-        foreach (char invalidChar in invalidChars)
-        {
-            sanitized = sanitized.Replace(invalidChar, '_');
-        }
-
-        // Remove additional problematic characters
-        sanitized = sanitized
-            .Replace(" ", "_")
-            .Replace("/", "_")
-            .Replace("\\", "_")
-            .Replace(":", "_")
-            .Replace("*", "_")
-            .Replace("?", "_")
-            .Replace("\"", "_")
-            .Replace("<", "_")
-            .Replace(">", "_")
-            .Replace("|", "_");
-
-        // Ensure filename is not empty after sanitization
-        if (string.IsNullOrEmpty(sanitized))
-            sanitized = "unnamed";
-
-        // Limit filename length
-        if (sanitized.Length > 100)
-        {
-            sanitized = sanitized.Substring(0, 100);
-        }
-
-        return sanitized;
-    }
 
     /// <summary>
     /// Checks if a sprite exists in Resources
@@ -480,7 +347,7 @@ public static class SpriteSaver
         try
         {
             // Sanitize names
-            string sanitizedImageName = SanitizeFileName(imageName);
+            string sanitizedImageName = imageName.SanitizeFileName();
             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create resource path
@@ -517,7 +384,7 @@ public static class SpriteSaver
         try
         {
             // Sanitize names
-            string sanitizedImageName = SanitizeFileName(imageName);
+            string sanitizedImageName = imageName.SanitizeFileName();
             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
 
             // Create file path

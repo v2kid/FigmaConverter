@@ -35,6 +35,5 @@ public enum FigmaNodeType
     CONNECTOR, // Connector line
     WASHI_TAPE, // Washi tape
     CODE_BLOCK, // Code block
-    STAMP // Stamp
-    ,
+    STAMP, // Stamp
 }
