@@ -13,18 +13,21 @@ public class UIElementFactory
     private readonly SpriteCacheService _spriteCache;
     private readonly NodeDataCacheService _nodeCache;
     private readonly GoogleFontService _fontService;
+    private readonly ShapeBaker _shapeBaker;
 
     public UIElementFactory(
         FigmaConverterConfig config,
         SpriteCacheService spriteCache,
         NodeDataCacheService nodeCache,
-        GoogleFontService fontService = null
+        GoogleFontService fontService = null,
+        ShapeBaker shapeBaker = null
     )
     {
         _config = config;
         _spriteCache = spriteCache;
         _nodeCache = nodeCache;
         _fontService = fontService;
+        _shapeBaker = shapeBaker;
     }
 
     /// <summary>
@@ -86,26 +89,42 @@ public class UIElementFactory
         JArray fills = nodeData["fills"] as JArray;
         bool hasFills = fills != null && fills.Count > 0;
 
-        if (hasFills)
+        if (hasFills || ShapeBaker.NeedsShapeBaking(nodeData))
         {
             Image backgroundImage = container.AddComponent<Image>();
             ApplyImageScaleMode(nodeData, backgroundImage);
 
-            // if (hasImagePrefix)
-            // {
-            //     ApplyImageSprite(container, nodeName, backgroundImage);
-            // }
-            // else if (hasFills)
-            // {
-            //     JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
-            //     float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
-            //     float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
-            //     ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
-            // }
             JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
             float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
             float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
-            ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
+
+            // Try shape baking first for nodes with strokes/effects/corner radius
+            if (_shapeBaker != null && ShapeBaker.NeedsShapeBaking(nodeData))
+            {
+                string resourcePath = _shapeBaker.BakeAndSave(nodeData, nodeName, width, height);
+                if (resourcePath != null)
+                {
+                    Sprite bakedSprite = Resources.Load<Sprite>(resourcePath);
+                    if (bakedSprite != null)
+                    {
+                        backgroundImage.sprite = bakedSprite;
+                        backgroundImage.type = Image.Type.Simple;
+                        backgroundImage.color = Color.white;
+                    }
+                    else
+                    {
+                        ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
+                    }
+                }
+                else
+                {
+                    ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
+                }
+            }
+            else
+            {
+                ApplyStyledSprite(container, nodeData, backgroundImage, width, height);
+            }
         }
 
         return container;
@@ -150,8 +169,25 @@ public class UIElementFactory
         JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
         float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
         float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
-        ApplyStyledSprite(shapeGO, nodeData, image, width, height);
 
+        // Shape baking for nodes with corner radius / strokes / effects
+        if (_shapeBaker != null && ShapeBaker.NeedsShapeBaking(nodeData))
+        {
+            string resourcePath = _shapeBaker.BakeAndSave(nodeData, nodeName, width, height);
+            if (resourcePath != null)
+            {
+                Sprite bakedSprite = Resources.Load<Sprite>(resourcePath);
+                if (bakedSprite != null)
+                {
+                    image.sprite = bakedSprite;
+                    image.type = Image.Type.Simple;
+                    image.color = Color.white;
+                    return shapeGO;
+                }
+            }
+        }
+
+        ApplyStyledSprite(shapeGO, nodeData, image, width, height);
         return shapeGO;
     }
 

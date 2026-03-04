@@ -30,6 +30,7 @@ public class FigmaConverter : MonoBehaviour
     private UIElementFactory _uiFactory;
     private UITransformService _transformService;
     private GoogleFontService _fontService;
+    private ShapeBaker _shapeBaker;
 
     // Runtime state
     private Dictionary<string, GameObject> _createdNodes = new Dictionary<string, GameObject>();
@@ -83,9 +84,12 @@ public class FigmaConverter : MonoBehaviour
             // Initialize font service
             _fontService = new GoogleFontService(config);
 
+            // Initialize shape baking service
+            _shapeBaker = new ShapeBaker(config);
+
             // Initialize rendering services
-            config.targetNodeId = config.nodeId; // Make available to factories
-            _uiFactory = new UIElementFactory(config, _spriteCache, _nodeCache, _fontService);
+            config.targetNodeId = config.nodeId;
+            _uiFactory = new UIElementFactory(config, _spriteCache, _nodeCache, _fontService, _shapeBaker);
 
             _transformService = new UITransformService(config);
 
@@ -104,6 +108,7 @@ public class FigmaConverter : MonoBehaviour
         _nodeCache?.Clear();
         _objectPool?.ClearAll(false);
         _transformService?.ClearCache();
+        _shapeBaker?.Dispose();
         _imageFillsCache?.Clear();
         _servicesInitialized = false;
     }

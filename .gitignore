@@ -99,3 +99,7 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 /Packages/com.singularitygroup.hotreload
 /Assets/Sprites
+
+# Secret API keys - DO NOT commit
+Assets/Scripts/Core/Secrets.cs
+Assets/Scripts/Core/Secrets.cs.meta
