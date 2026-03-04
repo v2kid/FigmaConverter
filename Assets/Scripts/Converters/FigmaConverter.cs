@@ -29,13 +29,14 @@ public class FigmaConverter : MonoBehaviour
     private ObjectPoolService _objectPool;
     private UIElementFactory _uiFactory;
     private UITransformService _transformService;
+    private GoogleFontService _fontService;
 
     // Runtime state
     private Dictionary<string, GameObject> _createdNodes = new Dictionary<string, GameObject>();
     private JObject _currentNodeData;
     private bool _servicesInitialized = false;
 
-    // Image fills cache for DirectSpriteGenerator
+    // Image fills cache (imageRef -> base64 data)
     private Dictionary<string, string> _imageFillsCache = new Dictionary<string, string>();
 
     #region Unity Lifecycle
@@ -79,9 +80,12 @@ public class FigmaConverter : MonoBehaviour
                 _objectPool = new ObjectPoolService();
             }
 
+            // Initialize font service
+            _fontService = new GoogleFontService(config);
+
             // Initialize rendering services
             config.targetNodeId = config.nodeId; // Make available to factories
-            _uiFactory = new UIElementFactory(config, _spriteCache, _nodeCache);
+            _uiFactory = new UIElementFactory(config, _spriteCache, _nodeCache, _fontService);
 
             _transformService = new UITransformService(config);
 
@@ -178,9 +182,25 @@ public class FigmaConverter : MonoBehaviour
     private IEnumerator DownloadAndConvertCoroutine()
     {
         yield return DownloadNodeData();
+        yield return ResolveFonts();
         yield return DownloadImages();
         InitializeServices();
         StartCoroutine(ConvertNodeCoroutine());
+    }
+
+    private IEnumerator ResolveFonts()
+    {
+        if (_currentNodeData == null || _fontService == null)
+        {
+            Debug.LogWarning("Cannot resolve fonts: no node data or font service");
+            yield break;
+        }
+
+        var families = _fontService.CollectUsedFontFamilies(_currentNodeData);
+        if (families.Count > 0)
+        {
+            yield return _fontService.ResolveFontsCoroutine(families);
+        }
     }
 
     private IEnumerator DownloadNodeData()
@@ -256,7 +276,7 @@ public class FigmaConverter : MonoBehaviour
     }
 
     /// <summary>
-    /// Downloads image fills using FigmaApi.GetImageFillsAsync and stores them for DirectSpriteGenerator
+    /// Downloads image fills using FigmaApi.GetImageFillsAsync and stores them in cache
     /// </summary>
     private IEnumerator DownloadImageFills()
     {
@@ -307,18 +327,65 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
-        // Convert to DirectSpriteGenerator format and store in cache
-        var imageData = SpriteGenerator.ConvertFigmaImageData(figmaImageData);
+        // Convert byte[] to base64 strings and store in cache
+        var imageData = new Dictionary<string, string>();
+        foreach (var kvp in figmaImageData)
+        {
+            if (kvp.Value != null)
+            {
+                imageData[kvp.Key] = ImageRenderer.ConvertImageDataToBase64(kvp.Value);
+            }
+        }
         StoreImageFillsInCache(imageData);
         figmaApi.Dispose();
     }
 
     private IEnumerator DownloadImagesFromIds(List<string> imageNodeIds)
     {
+        // Pre-download check: filter out IDs whose images already exist on disk
+        string resourcesSpritesPath = Path.Combine(
+            Application.dataPath,
+            Constant.RESOURCES_FOLDER,
+            Constant.SAVE_IMAGE_FOLDER,
+            config.nodeId.Replace(":", "-")
+        );
+        EnsureDirectory(resourcesSpritesPath);
+
+        List<string> idsToDownload = new List<string>();
+        int alreadyExistCount = 0;
+
+        foreach (string nodeId in imageNodeIds)
+        {
+            string nodeName = _nodeCache.GetNodeName(nodeId) ?? nodeId;
+            string fileName = nodeName.SanitizeFileName();
+            string filePath = Path.Combine(resourcesSpritesPath, $"{fileName}.{config.imageFormat}");
+
+            if (File.Exists(filePath))
+            {
+                alreadyExistCount++;
+                Debug.Log($"⏭ Image already exists, skipping download: {fileName}");
+            }
+            else
+            {
+                idsToDownload.Add(nodeId);
+            }
+        }
+
+        if (alreadyExistCount > 0)
+        {
+            Debug.Log($"✓ Skipped {alreadyExistCount} images (already on disk). Downloading {idsToDownload.Count} remaining.");
+        }
+
+        if (idsToDownload.Count == 0)
+        {
+            Debug.Log("✓ All images already exist. No API calls needed!");
+            yield break;
+        }
+
         var figmaApi = new FigmaApi(config.figmaToken);
         var imageRequest = new ImageRequest(config.fileId)
         {
-            ids = imageNodeIds.ToArray(),
+            ids = idsToDownload.ToArray(),
             format = config.imageFormat,
             scale = config.imageScale,
             useAbsoluteBounds = true,
@@ -351,14 +418,9 @@ public class FigmaConverter : MonoBehaviour
         }
 
         // Save downloaded images
-        string resourcesSpritesPath = Path.Combine(
-            Application.dataPath,
-            Constant.RESOURCES_FOLDER,
-            Constant.SAVE_IMAGE_FOLDER,
-            config.nodeId.Replace(":", "-")
-        );
-
-        EnsureDirectory(resourcesSpritesPath);
+        // Track saved file names to avoid writing duplicate images
+        HashSet<string> savedFileNames = new HashSet<string>();
+        int skippedCount = 0;
 
         foreach (var kvp in images)
         {
@@ -372,11 +434,26 @@ public class FigmaConverter : MonoBehaviour
 
             string nodeName = _nodeCache.GetNodeName(imageNodeId) ?? imageNodeId;
             string fileName = nodeName.SanitizeFileName();
+
+            // Deduplication: skip if a file with the same name was already saved
+            if (savedFileNames.Contains(fileName))
+            {
+                skippedCount++;
+                Debug.Log($"⏭ Skipping duplicate image (same name): {fileName} (node ID: {imageNodeId})");
+                continue;
+            }
+
             string filePath = Path.Combine(
                 resourcesSpritesPath,
                 $"{fileName}.{config.imageFormat}"
             );
             File.WriteAllBytes(filePath, imageData);
+            savedFileNames.Add(fileName);
+        }
+
+        if (skippedCount > 0)
+        {
+            Debug.Log($"✓ Image download complete. Skipped {skippedCount} duplicate images by name.");
         }
 
 #if UNITY_EDITOR
@@ -386,58 +463,16 @@ public class FigmaConverter : MonoBehaviour
         figmaApi.Dispose();
     }
 
-    private void CollectImageNodeIds(JToken token, List<string> imageNodeIds)
+
+
+    private void CollectIconFrameIds(JToken token, List<string> iconFrameIds, HashSet<string> collectedNames = null)
     {
         if (token == null)
             return;
 
-        if (token.Type == JTokenType.Object)
-        {
-            var obj = (JObject)token;
-            string nodeId = obj["id"]?.ToString();
-            string nodeName = obj["name"]?.ToString();
-
-            // Check visibility if skipInvisibleItems is enabled
-            if (config.skipInvisibleItems)
-            {
-                bool visible = obj["visible"]?.ToObject<bool>() ?? true;
-                if (!visible)
-                {
-                    // Skip this node but still process children
-                    if (obj.TryGetValue("children", out JToken childToken))
-                    {
-                        CollectImageNodeIds(childToken, imageNodeIds);
-                    }
-                    return;
-                }
-            }
-
-            if (
-                !string.IsNullOrEmpty(nodeName)
-                && !string.IsNullOrEmpty(nodeId)
-                // && nodeName.StartsWith(Constant.IMAGE_PREFIX)
-                && !imageNodeIds.Contains(nodeId)
-            )
-            {
-                imageNodeIds.Add(nodeId);
-            }
-
-            if (obj.TryGetValue("children", out JToken childrenToken))
-            {
-                CollectImageNodeIds(childrenToken, imageNodeIds);
-            }
-        }
-        else if (token.Type == JTokenType.Array)
-        {
-            foreach (var child in (JArray)token)
-                CollectImageNodeIds(child, imageNodeIds);
-        }
-    }
-
-    private void CollectIconFrameIds(JToken token, List<string> iconFrameIds)
-    {
-        if (token == null)
-            return;
+        // Initialize name tracking set on first call
+        if (collectedNames == null)
+            collectedNames = new HashSet<string>();
 
         if (token.Type == JTokenType.Object)
         {
@@ -454,7 +489,7 @@ public class FigmaConverter : MonoBehaviour
                     // Skip this node but still process children
                     if (obj.TryGetValue("children", out JToken childToken))
                     {
-                        CollectIconFrameIds(childToken, iconFrameIds);
+                        CollectIconFrameIds(childToken, iconFrameIds, collectedNames);
                     }
                     return;
                 }
@@ -466,22 +501,33 @@ public class FigmaConverter : MonoBehaviour
                 && FigmaIconDetector.IsIconFrame(obj)
             )
             {
+                string nodeName = obj["name"]?.ToString() ?? "";
+                string sanitizedName = nodeName.SanitizeFileName();
+
+                // Dedup by name: skip if we already collected an icon with the same name
+                if (collectedNames.Contains(sanitizedName))
+                {
+                    Debug.Log($"⏭ Skipping duplicate icon frame (same name): {nodeName} (node ID: {nodeId})");
+                    return;
+                }
+
                 if (!iconFrameIds.Contains(nodeId))
                 {
                     iconFrameIds.Add(nodeId);
+                    collectedNames.Add(sanitizedName);
                 }
                 return; // Don't recurse into children
             }
 
             if (obj.TryGetValue("children", out JToken childrenToken))
             {
-                CollectIconFrameIds(childrenToken, iconFrameIds);
+                CollectIconFrameIds(childrenToken, iconFrameIds, collectedNames);
             }
         }
         else if (token.Type == JTokenType.Array)
         {
             foreach (var child in (JArray)token)
-                CollectIconFrameIds(child, iconFrameIds);
+                CollectIconFrameIds(child, iconFrameIds, collectedNames);
         }
     }
 
@@ -570,7 +616,7 @@ public class FigmaConverter : MonoBehaviour
     }
 
     /// <summary>
-    /// Processes nodes with image fills using DirectSpriteGenerator
+    /// Processes nodes with image fills
     /// </summary>
     private GameObject ProcessNodeWithImageFills(JObject nodeData, Transform parent)
     {
@@ -683,24 +729,60 @@ public class FigmaConverter : MonoBehaviour
             new Vector2(0.5f, 0.5f)
         );
 
+        // if (sprite != null && imageComponent != null)
+        // {
+        //     imageComponent.sprite = sprite;
+        //     // Save sprite to Resources for future use
+        //     if (!string.IsNullOrEmpty(config.nodeId))
+        //     {
+        //         SpriteSaver.SaveSpriteToResources(sprite, nodeName, config.nodeId);
+        //     }
+        // }
+        // else
+        // {
+        //     if (sprite == null)
+        //     {
+        //         Debug.LogError($"Failed to create sprite for {nodeName} - sprite is null");
+        //     }
+        //     if (imageComponent == null)
+        //     {
+        //         Debug.LogError($"Failed to assign sprite for {nodeName} - imageComponent is null");
+        //     }
+        // }
+        // ... (Code tạo Sprite và SaveSpriteToResources)
+
         if (sprite != null && imageComponent != null)
         {
+            // 1. Gán Sprite TẠM THỜI (được tạo tại runtime) vào Image component
             imageComponent.sprite = sprite;
-            // Save sprite to Resources for future use
+
+            // 2. Lưu Sprite vào Resources và nhận về đường dẫn asset
             if (!string.IsNullOrEmpty(config.nodeId))
             {
-                SpriteSaver.SaveSpriteToResources(sprite, nodeName, config.nodeId);
-            }
-        }
-        else
-        {
-            if (sprite == null)
-            {
-                Debug.LogError($"Failed to create sprite for {nodeName} - sprite is null");
-            }
-            if (imageComponent == null)
-            {
-                Debug.LogError($"Failed to assign sprite for {nodeName} - imageComponent is null");
+                string resourcePath = SpriteSaver.SaveSpriteToResources(sprite, nodeName, config.nodeId);
+
+                // --- Bổ sung sau khi save thành công ---
+                if (!string.IsNullOrEmpty(resourcePath))
+                {
+                    // Tải lại Sprite asset đã được lưu từ Resources
+                    // Lưu ý: Resources.Load chỉ hoạt động ở Editor HOẶC Runtime sau khi đã BUILD
+                    Sprite savedSprite = Resources.Load<Sprite>(resourcePath);
+
+                    if (savedSprite != null)
+                    {
+                        // 3. Cập nhật Image component để trỏ đến Sprite asset ĐÃ LƯU
+                        imageComponent.sprite = savedSprite;
+
+                        // Tùy chọn: Xóa Sprite tạm thời đã tạo lúc đầu (vì Image component đã trỏ sang cái mới)
+                        UnityEngine.Object.Destroy(sprite);
+
+                        Debug.Log($"Successfully replaced temporary sprite with Resources asset: {resourcePath}");
+                    }
+                    else
+                    {
+                        Debug.LogError($"Failed to load saved sprite from Resources path: {resourcePath}");
+                    }
+                }
             }
         }
 
@@ -829,7 +911,7 @@ public class FigmaConverter : MonoBehaviour
     }
 
     /// <summary>
-    /// Stores image fills data in cache for DirectSpriteGenerator to use
+    /// Stores image fills data in cache
     /// </summary>
     private void StoreImageFillsInCache(Dictionary<string, string> imageData)
     {

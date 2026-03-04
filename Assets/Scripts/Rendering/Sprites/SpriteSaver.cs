@@ -11,13 +11,96 @@ using UnityEditor;
 /// </summary>
 public static class SpriteSaver
 {
-    /// <summary>
-    /// Saves a sprite to the Resources folder and returns the resource path
-    /// </summary>
-    /// <param name="sprite">Sprite to save</param>
-    /// <param name="spriteName">Name for the sprite file</param>
-    /// <param name="mainNodeId">Main node ID from config for organizing files</param>
-    /// <returns>Resource path if save was successful, null otherwise</returns>
+    //     public static string SaveSpriteToResources(Sprite sprite, string spriteName, string mainNodeId)
+    //     {
+    //         if (sprite == null || sprite.texture == null)
+    //         {
+    //             Debug.LogError("SpriteSaver: Cannot save null sprite or sprite with null texture");
+    //             return null;
+    //         }
+
+    //         if (string.IsNullOrEmpty(spriteName) || string.IsNullOrEmpty(mainNodeId))
+    //         {
+    //             Debug.LogError("SpriteSaver: Sprite name and main node ID cannot be null or empty");
+    //             return null;
+    //         }
+
+    //         try
+    //         {
+    //             // Sanitize names for file system
+    //             string sanitizedSpriteName = SanitizeFileName(spriteName);
+    //             string sanitizedMainNodeId = mainNodeId.Replace(":", "-");
+
+    //             // Create directory path
+    //             string folderPath = CreateSpriteDirectory(sanitizedMainNodeId);
+    //             if (string.IsNullOrEmpty(folderPath))
+    //                 return null;
+
+    //             // Create file path
+    //             string fileName = $"{sanitizedSpriteName}.png";
+    //             string filePath = Path.Combine(folderPath, fileName);
+
+    //             // Crop texture to sprite bounds to remove padding
+    //             Texture2D croppedTexture = CropTextureToSpriteBounds(sprite);
+    //             if (croppedTexture == null)
+    //             {
+    //                 Debug.LogWarning($"SpriteSaver: Failed to crop sprite {spriteName}");
+    //                 return null;
+    //             }
+
+    //             // Encode cropped texture to PNG
+    //             byte[] pngData = croppedTexture.EncodeToPNG();
+    //             if (pngData != null && pngData.Length > 0)
+    //             {
+    //                 File.WriteAllBytes(filePath, pngData);
+
+    // #if UNITY_EDITOR
+    //                 // Get asset path (relative to Assets folder)
+    //                 string assetPath =
+    //                     $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{fileName}";
+
+    //                 // Refresh and configure the texture import settings
+    //                 AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+
+    //                 // Configure as sprite
+    //                 TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+    //                 if (importer != null)
+    //                 {
+    //                     importer.textureType = TextureImporterType.Sprite;
+    //                     importer.spriteImportMode = SpriteImportMode.Single;
+    //                     importer.mipmapEnabled = false;
+    //                     importer.filterMode = FilterMode.Bilinear;
+    //                     importer.textureCompression = TextureImporterCompression.Uncompressed;
+    //                     importer.maxTextureSize = 2048;
+
+    //                     EditorUtility.SetDirty(importer);
+    //                     importer.SaveAndReimport();
+    //                 }
+
+    //                 AssetDatabase.Refresh();
+    // #endif
+    //                 Debug.Log($"✓ SpriteSaver: Saved sprite to Resources: {fileName} at {filePath}");
+
+    //                 // Clean up cropped texture
+    //                 UnityEngine.Object.DestroyImmediate(croppedTexture);
+
+    //                 // Return resource path
+    //                 return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
+    //             }
+    //             else
+    //             {
+    //                 Debug.LogWarning($"SpriteSaver: Failed to encode sprite {spriteName} to PNG");
+    //                 UnityEngine.Object.DestroyImmediate(croppedTexture);
+    //                 return null;
+    //             }
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             Debug.LogError($"SpriteSaver: Error saving sprite {spriteName}: {ex.Message}");
+    //             return null;
+    //         }
+    //     }
+
     public static string SaveSpriteToResources(Sprite sprite, string spriteName, string mainNodeId)
     {
         if (sprite == null || sprite.texture == null)
@@ -43,9 +126,16 @@ public static class SpriteSaver
             if (string.IsNullOrEmpty(folderPath))
                 return null;
 
-            // Create file path
+            // Create file path — no GUID suffix, use name directly for deduplication
             string fileName = $"{sanitizedSpriteName}.png";
             string filePath = Path.Combine(folderPath, fileName);
+
+            // Skip if file already exists (same name = same image)
+            if (File.Exists(filePath))
+            {
+                Debug.Log($"⏭ SpriteSaver: Sprite already exists, skipping: {fileName}");
+                return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
+            }
 
             // Crop texture to sprite bounds to remove padding
             Texture2D croppedTexture = CropTextureToSpriteBounds(sprite);
@@ -91,7 +181,8 @@ public static class SpriteSaver
                 // Clean up cropped texture
                 UnityEngine.Object.DestroyImmediate(croppedTexture);
 
-                // Return resource path
+                // Return resource path - use the full file name *without* the extension
+                // Unity's Resources.Load expects the path relative to a Resources folder, without extension.
                 return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
             }
             else
@@ -108,13 +199,6 @@ public static class SpriteSaver
         }
     }
 
-    /// <summary>
-    /// Saves an image texture to the Resources folder
-    /// </summary>
-    /// <param name="texture">Texture to save</param>
-    /// <param name="imageName">Name for the image file</param>
-    /// <param name="mainNodeId">Main node ID from config for organizing files</param>
-    /// <returns>True if save was successful</returns>
     public static bool SaveImageToResources(Texture2D texture, string imageName, string mainNodeId)
     {
         if (texture == null)

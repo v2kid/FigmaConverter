@@ -12,16 +12,19 @@ public class UIElementFactory
     private readonly FigmaConverterConfig _config;
     private readonly SpriteCacheService _spriteCache;
     private readonly NodeDataCacheService _nodeCache;
+    private readonly GoogleFontService _fontService;
 
     public UIElementFactory(
         FigmaConverterConfig config,
         SpriteCacheService spriteCache,
-        NodeDataCacheService nodeCache
+        NodeDataCacheService nodeCache,
+        GoogleFontService fontService = null
     )
     {
         _config = config;
         _spriteCache = spriteCache;
         _nodeCache = nodeCache;
+        _fontService = fontService;
     }
 
     /// <summary>
@@ -86,7 +89,7 @@ public class UIElementFactory
         if (hasFills)
         {
             Image backgroundImage = container.AddComponent<Image>();
-            backgroundImage.type = Image.Type.Sliced;
+            ApplyImageScaleMode(nodeData, backgroundImage);
 
             // if (hasImagePrefix)
             // {
@@ -122,8 +125,11 @@ public class UIElementFactory
         tmpText.text = characters;
         tmpText.textWrappingMode = TextWrappingModes.NoWrap;
 
-        if (_config.defaultFont != null)
-            tmpText.font = _config.defaultFont;
+        // Resolve font per node — use fontFamily from Figma data
+        string fontFamily = nodeData["style"]?["fontFamily"]?.ToString();
+        TMP_FontAsset resolvedFont = _fontService?.GetFontAsset(fontFamily) ?? _config.defaultFont;
+        if (resolvedFont != null)
+            tmpText.font = resolvedFont;
 
         ApplyTextStyling(nodeData, tmpText);
         ApplyTextColor(nodeData, tmpText);
@@ -140,7 +146,7 @@ public class UIElementFactory
         shapeGO.AddComponent<RectTransform>();
 
         Image image = shapeGO.AddComponent<Image>();
-        image.type = Image.Type.Sliced;
+        ApplyImageScaleMode(nodeData, image);
         JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
         float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
         float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
@@ -159,7 +165,7 @@ public class UIElementFactory
         vectorGO.AddComponent<RectTransform>();
 
         Image image = vectorGO.AddComponent<Image>();
-        image.type = Image.Type.Sliced;
+        ApplyImageScaleMode(nodeData, image);
         JObject boundingBox = nodeData["absoluteBoundingBox"] as JObject;
         float width = boundingBox?["width"]?.ToObject<float>() ?? 100f;
         float height = boundingBox?["height"]?.ToObject<float>() ?? 100f;
@@ -183,7 +189,7 @@ public class UIElementFactory
     private void AddIconImage(GameObject gameObject, JObject nodeData)
     {
         Image iconImage = gameObject.AddComponent<Image>();
-        iconImage.type = Image.Type.Sliced;
+        ApplyImageScaleMode(nodeData, iconImage);
 
         string nodeName = nodeData["name"]?.ToString() ?? "Icon";
         string sanitizedName = nodeName.SanitizeFileName();
@@ -221,12 +227,6 @@ public class UIElementFactory
         float height
     )
     {
-        if (!_config.useSpriteGeneration)
-        {
-            ApplySimpleFill(nodeData, image);
-            return;
-        }
-
         string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
         string nodeId = nodeData["id"]?.ToString() ?? "";
         string sanitizedName = nodeName.SanitizeFileName();
@@ -249,7 +249,6 @@ public class UIElementFactory
 
         if (savedSprite != null)
         {
-            // Use saved sprite
             image.sprite = savedSprite;
             image.preserveAspect = true;
             image.color = Color.white;
@@ -257,47 +256,10 @@ public class UIElementFactory
             return;
         }
 
-        // Generate sprite if not found
-        Sprite generatedSprite = SpriteGenerator.GenerateSpriteFromNodeDirect(
-            nodeData,
-            width,
-            height
-        );
-        if (generatedSprite != null)
-        {
-#if UNITY_EDITOR
-            // Save the generated sprite as a persistent asset
-            string savedPath = SpriteSaver.SaveSpriteToResources(
-                generatedSprite,
-                sanitizedName,
-                _config.targetNodeId
-            );
-
-            if (!string.IsNullOrEmpty(savedPath))
-            {
-                // Load the saved sprite and use it instead of the runtime one
-                Sprite persistentSprite = Resources.Load<Sprite>(savedPath);
-                if (persistentSprite != null)
-                {
-                    image.sprite = persistentSprite;
-                    image.preserveAspect = true;
-                    image.color = Color.white;
-                    _spriteCache.Add(cacheKey, persistentSprite);
-                    return;
-                }
-            }
-#endif
-            // Fallback to runtime sprite if save failed or not in editor
-            image.sprite = generatedSprite;
-            image.preserveAspect = true;
-            image.color = Color.white;
-            _spriteCache.Add(cacheKey, generatedSprite);
-        }
-        else
-        {
-            ApplySimpleFill(nodeData, image);
-        }
+        // No downloaded sprite available — fallback to simple fill color
+        ApplySimpleFill(nodeData, image);
     }
+
 
     private void ApplyVectorSprite(
         GameObject gameObject,
@@ -354,8 +316,48 @@ public class UIElementFactory
         }
     }
 
+    /// <summary>
+    /// Gets the scaleMode from the first IMAGE fill in node data
+    /// </summary>
+    private string GetImageScaleMode(JObject nodeData)
+    {
+        JArray fills = nodeData?["fills"] as JArray;
+        if (fills == null) return "FILL";
+
+        foreach (JObject fill in fills)
+        {
+            if (fill?["type"]?.ToString() == "IMAGE")
+            {
+                return fill["scaleMode"]?.ToString() ?? "FILL";
+            }
+        }
+        return "FILL";
+    }
+
+    /// <summary>
+    /// Applies Image type and preserveAspect based on Figma scaleMode.
+    /// FIT -> Simple + preserveAspect (image fits within bounds maintaining aspect ratio)
+    /// FILL/CROP/default -> Sliced (image stretches to fill)
+    /// </summary>
+    private void ApplyImageScaleMode(JObject nodeData, Image image)
+    {
+        string scaleMode = GetImageScaleMode(nodeData);
+
+        if (scaleMode == "FIT")
+        {
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+        }
+        else
+        {
+            image.type = Image.Type.Sliced;
+            image.preserveAspect = false;
+        }
+    }
+
     private void ApplyTextStyling(JObject nodeData, TextMeshProUGUI tmpText)
     {
+
         JObject style = nodeData["style"] as JObject;
         if (style == null)
             return;
