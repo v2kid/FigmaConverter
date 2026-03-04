@@ -227,7 +227,7 @@ public class FigmaConverter : MonoBehaviour
 
         using (var www = UnityEngine.Networking.UnityWebRequest.Get(url))
         {
-            www.SetRequestHeader("X-FIGMA-TOKEN", config.figmaToken);
+            www.SetRequestHeader("X-FIGMA-TOKEN", Secrets.FIGMA_TOKEN);
             yield return www.SendWebRequest();
 
             if (www.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
@@ -300,7 +300,7 @@ public class FigmaConverter : MonoBehaviour
         }
 
         // Download image fills using FigmaApi
-        var figmaApi = new FigmaApi(config.figmaToken);
+        var figmaApi = new FigmaApi(Secrets.FIGMA_TOKEN);
         var imageFillsRequest = new ImageFillsRequest(config.fileId)
         {
             imageRefs = imageRefs.ToArray(),
@@ -387,7 +387,7 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
-        var figmaApi = new FigmaApi(config.figmaToken);
+        var figmaApi = new FigmaApi(Secrets.FIGMA_TOKEN);
         var imageRequest = new ImageRequest(config.fileId)
         {
             ids = idsToDownload.ToArray(),

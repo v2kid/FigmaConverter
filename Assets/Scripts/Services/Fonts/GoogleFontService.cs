@@ -99,7 +99,7 @@ public class GoogleFontService
             }
 
             // Step 2: Try Google Fonts API
-            if (!string.IsNullOrEmpty(_config.googleFontsApiKey))
+            if (!string.IsNullOrEmpty(Secrets.GOOGLE_FONTS_API_KEY))
             {
                 bool downloaded = false;
                 yield return DownloadFromGoogleFonts(family, (success) => downloaded = success);
@@ -232,7 +232,7 @@ public class GoogleFontService
 #if UNITY_EDITOR
         // Query Google Fonts API for this specific family
         string encodedFamily = UnityWebRequest.EscapeURL(fontFamily);
-        string apiUrl = $"{GOOGLE_FONTS_API_URL}?family={encodedFamily}&key={_config.googleFontsApiKey}";
+        string apiUrl = $"{GOOGLE_FONTS_API_URL}?family={encodedFamily}&key={Secrets.GOOGLE_FONTS_API_KEY}";
 
         using (var request = UnityWebRequest.Get(apiUrl))
         {

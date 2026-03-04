@@ -8,10 +8,10 @@ using UnityEngine;
 public class FigmaConverterConfig
 {
     [Header("API Settings")]
-    public string figmaToken = Secrets.FIGMA_TOKEN;
+    private string figmaToken = Secrets.FIGMA_TOKEN;
     public string fileId = "YOUR_FILE_ID";
     public string nodeId = "YOUR_NODE_ID";
-    public string googleFontsApiKey = Secrets.GOOGLE_FONTS_API_KEY;
+    private string googleFontsApiKey = Secrets.GOOGLE_FONTS_API_KEY;
     public string fontsPath = "Assets/Fonts";
 
     [Header("UI Settings")]
