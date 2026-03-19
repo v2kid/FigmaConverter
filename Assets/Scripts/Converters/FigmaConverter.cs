@@ -443,12 +443,11 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
-        // Pre-check: filter out imageRefs whose sprites already exist on disk
+        // Pre-check: filter out imageRefs whose sprites already exist on disk (shared folder)
         string resourcesSpritesPath = Path.Combine(
             Application.dataPath,
             Constant.RESOURCES_FOLDER,
-            Constant.SAVE_IMAGE_FOLDER,
-            config.nodeId.Replace(":", "-")
+            Constant.SAVE_IMAGE_SHARED_FOLDER
         );
         EnsureDirectory(resourcesSpritesPath);
 
@@ -457,9 +456,10 @@ public class FigmaConverter : MonoBehaviour
 
         foreach (string imageRef in imageRefs)
         {
-            // Check if any file on disk contains this imageRef as part of its name
+            // Hash the imageRef string → deterministic filename suffix
             string refFileName = imageRef.SanitizeFileName();
-            string filePath = Path.Combine(resourcesSpritesPath, $"{refFileName}.png");
+            string refHash   = SpriteSaver.GetShortHash(imageRef);
+            string filePath  = Path.Combine(resourcesSpritesPath, $"{refFileName}_{refHash}.png");
 
             if (File.Exists(filePath))
             {
@@ -467,7 +467,7 @@ public class FigmaConverter : MonoBehaviour
                 // Load existing image into cache from disk
                 byte[] existingData = File.ReadAllBytes(filePath);
                 _imageFillsCache[imageRef] = ImageRenderer.ConvertImageDataToBase64(existingData);
-                Debug.Log($"⏭ Image fill already on disk, loaded from cache: {refFileName}");
+                Debug.Log($"⏭ Image fill already on disk, loaded from cache: {refFileName}_{refHash}");
             }
             else
             {
@@ -536,12 +536,11 @@ public class FigmaConverter : MonoBehaviour
 
     private IEnumerator DownloadImagesFromIds(List<string> imageNodeIds)
     {
-        // Pre-download check: filter out IDs whose images already exist on disk
+        // Pre-download check: filter out IDs whose images already exist on disk (icons folder)
         string resourcesSpritesPath = Path.Combine(
             Application.dataPath,
             Constant.RESOURCES_FOLDER,
-            Constant.SAVE_IMAGE_FOLDER,
-            config.nodeId.Replace(":", "-")
+            Constant.SAVE_IMAGE_ICONS_FOLDER
         );
         EnsureDirectory(resourcesSpritesPath);
 
@@ -550,14 +549,15 @@ public class FigmaConverter : MonoBehaviour
 
         foreach (string nodeId in imageNodeIds)
         {
-            string nodeName = _nodeCache.GetNodeName(nodeId) ?? nodeId;
-            string fileName = nodeName.SanitizeFileName();
-            string filePath = Path.Combine(resourcesSpritesPath, $"{fileName}.{config.imageFormat}");
+            string nodeName  = _nodeCache.GetNodeName(nodeId) ?? nodeId;
+            string fileName  = nodeName.SanitizeFileName();
+            string nodeHash  = SpriteSaver.GetShortHash(nodeId);
+            string filePath  = Path.Combine(resourcesSpritesPath, $"{fileName}_{nodeHash}.{config.imageFormat}");
 
             if (File.Exists(filePath))
             {
                 alreadyExistCount++;
-                Debug.Log($"⏭ Image already exists, skipping download: {fileName}");
+                Debug.Log($"⏭ Icon already exists, skipping download: {fileName}_{nodeHash}");
             }
             else
             {
@@ -613,47 +613,56 @@ public class FigmaConverter : MonoBehaviour
             yield break;
         }
 
-        // Save downloaded images
-        // Track saved file names to avoid writing duplicate images
-        HashSet<string> savedFileNames = new HashSet<string>();
-        int skippedCount = 0;
+        // Save downloaded icon images — filename includes nodeId hash for uniqueness
+        HashSet<string> savedFilePaths = new HashSet<string>();
+
+        // Collect all written asset paths for batch import
+        var assetPathsToImport = new List<string>();
 
         foreach (var kvp in images)
         {
             string imageNodeId = kvp.Key;
-            byte[] imageData = kvp.Value;
+            byte[] imageData   = kvp.Value;
 
             if (imageData == null)
-            {
                 continue;
-            }
 
             string nodeName = _nodeCache.GetNodeName(imageNodeId) ?? imageNodeId;
             string fileName = nodeName.SanitizeFileName();
+            string nodeHash = SpriteSaver.GetShortHash(imageNodeId);
+            string filePath = Path.Combine(resourcesSpritesPath, $"{fileName}_{nodeHash}.{config.imageFormat}");
 
-            // Deduplication: skip if a file with the same name was already saved
-            if (savedFileNames.Contains(fileName))
-            {
-                skippedCount++;
-                Debug.Log($"⏭ Skipping duplicate image (same name): {fileName} (node ID: {imageNodeId})");
-                continue;
-            }
+            if (savedFilePaths.Contains(filePath))
+                continue; // exact duplicate node (shouldn't happen)
 
-            string filePath = Path.Combine(
-                resourcesSpritesPath,
-                $"{fileName}.{config.imageFormat}"
-            );
             File.WriteAllBytes(filePath, imageData);
-            savedFileNames.Add(fileName);
-        }
+            savedFilePaths.Add(filePath);
 
-        if (skippedCount > 0)
-        {
-            Debug.Log($"✓ Image download complete. Skipped {skippedCount} duplicate images by name.");
+            string assetPath = $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_ICONS_FOLDER}/{fileName}_{nodeHash}.{config.imageFormat}";
+            assetPathsToImport.Add(assetPath);
+            Debug.Log($"✓ Saved icon: {fileName}_{nodeHash}.{config.imageFormat}");
         }
 
 #if UNITY_EDITOR
-        UnityEditor.AssetDatabase.Refresh();
+        // Batch-configure all new icons then do a single Refresh
+        foreach (string assetPath in assetPathsToImport)
+        {
+            UnityEditor.AssetDatabase.ImportAsset(assetPath, UnityEditor.ImportAssetOptions.ForceSynchronousImport);
+            var importer = UnityEditor.AssetImporter.GetAtPath(assetPath) as UnityEditor.TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType        = UnityEditor.TextureImporterType.Sprite;
+                importer.spriteImportMode   = UnityEditor.SpriteImportMode.Single;
+                importer.mipmapEnabled      = false;
+                importer.filterMode         = FilterMode.Bilinear;
+                importer.textureCompression = UnityEditor.TextureImporterCompression.Uncompressed;
+                importer.maxTextureSize     = 2048;
+                UnityEditor.EditorUtility.SetDirty(importer);
+                importer.SaveAndReimport();
+            }
+        }
+        if (assetPathsToImport.Count > 0)
+            UnityEditor.AssetDatabase.Refresh();
 #endif
 
         figmaApi.Dispose();
@@ -759,7 +768,9 @@ public class FigmaConverter : MonoBehaviour
 
     private GameObject ProcessFigmaNode(JObject nodeData, Transform parent)
     {
-        string nodeId = nodeData["id"]?.ToString();
+        if (nodeData == null) return null;
+
+        string nodeId   = nodeData["id"]?.ToString();
         string nodeName = nodeData["name"]?.ToString() ?? "UnnamedNode";
         string nodeType = nodeData["type"]?.ToString();
 
@@ -786,24 +797,35 @@ public class FigmaConverter : MonoBehaviour
         {
             // Cache created node
             if (!string.IsNullOrEmpty(nodeId))
-            {
                 _createdNodes[nodeId] = nodeGameObject;
-            }
 
             // Apply transform and visibility
             _transformService.ApplyTransform(nodeData, nodeGameObject, config.targetCanvas);
             _transformService.ApplyVisibility(nodeData, nodeGameObject);
+        }
 
-            // Process children (if not an icon frame)
-            bool isIconFrame =
-                (nodeType == "FRAME" || nodeType == "GROUP" || nodeType == "COMPONENT")
-                && FigmaIconDetector.IsIconFrame(nodeData);
+        // Process children — even if nodeGameObject is null, still recurse into children
+        bool isIconFrame =
+            (nodeType == "FRAME" || nodeType == "GROUP" || nodeType == "COMPONENT")
+            && FigmaIconDetector.IsIconFrame(nodeData);
 
-            if (!isIconFrame && nodeData["children"] is JArray children)
+        Transform childParent = nodeGameObject != null ? nodeGameObject.transform : parent;
+
+        if (!isIconFrame && nodeData["children"] is JArray children)
+        {
+            foreach (JToken childToken in children)
             {
-                foreach (JObject child in children)
+                JObject child = childToken as JObject;
+                if (child == null) continue;
+
+                try
                 {
-                    ProcessFigmaNode(child, nodeGameObject.transform);
+                    ProcessFigmaNode(child, childParent);
+                }
+                catch (System.Exception ex)
+                {
+                    string childName = child["name"]?.ToString() ?? "unknown";
+                    Debug.LogError($"Error processing child node '{childName}': {ex.Message}");
                 }
             }
         }
@@ -862,9 +884,20 @@ public class FigmaConverter : MonoBehaviour
         // Process children
         if (nodeData["children"] is JArray children)
         {
-            foreach (JObject child in children)
+            foreach (JToken childToken in children)
             {
-                ProcessFigmaNode(child, nodeGameObject.transform);
+                JObject child = childToken as JObject;
+                if (child == null) continue;
+
+                try
+                {
+                    ProcessFigmaNode(child, nodeGameObject.transform);
+                }
+                catch (System.Exception ex)
+                {
+                    string childName = child["name"]?.ToString() ?? "unknown";
+                    Debug.LogError($"Error processing child node '{childName}': {ex.Message}");
+                }
             }
         }
 
@@ -927,38 +960,30 @@ public class FigmaConverter : MonoBehaviour
 
         if (sprite != null && imageComponent != null)
         {
-            // 1. Gán Sprite TẠM THỜI (được tạo tại runtime) vào Image component
+            // Assign temp sprite so the Image doesn't appear blank while importing
             imageComponent.sprite = sprite;
 
-            // 2. Lưu Sprite vào Resources và nhận về đường dẫn asset
-            if (!string.IsNullOrEmpty(config.nodeId))
+            // The fill was saved to disk by StoreImageFillsInCache into Sprites/shared/
             {
-                string resourcePath = SpriteSaver.SaveSpriteToResources(sprite, nodeName, config.nodeId);
+                string sanitizedRef = imageRef.SanitizeFileName();
+                string refHash      = SpriteSaver.GetShortHash(imageRef);
+                string resourcePath = $"{Constant.SAVE_IMAGE_SHARED_FOLDER}/{sanitizedRef}_{refHash}";
 
-                // --- Bổ sung sau khi save thành công ---
-                if (!string.IsNullOrEmpty(resourcePath))
+                Sprite savedSprite = Resources.Load<Sprite>(resourcePath);
+                if (savedSprite != null)
                 {
-                    // Tải lại Sprite asset đã được lưu từ Resources
-                    // Lưu ý: Resources.Load chỉ hoạt động ở Editor HOẶC Runtime sau khi đã BUILD
-                    Sprite savedSprite = Resources.Load<Sprite>(resourcePath);
+                    imageComponent.sprite = savedSprite;
 
-                    if (savedSprite != null)
-                    {
-                        // 3. Cập nhật Image component để trỏ đến Sprite asset ĐÃ LƯU
-                        imageComponent.sprite = savedSprite;
-
-                        // Xóa Sprite tạm thời (edit mode cần dùng DestroyImmediate)
-                        if (Application.isPlaying)
-                            UnityEngine.Object.Destroy(sprite);
-                        else
-                            UnityEngine.Object.DestroyImmediate(sprite);
-
-                        Debug.Log($"Successfully replaced temporary sprite with Resources asset: {resourcePath}");
-                    }
+                    if (Application.isPlaying)
+                        UnityEngine.Object.Destroy(sprite);
                     else
-                    {
-                        Debug.LogError($"Failed to load saved sprite from Resources path: {resourcePath}");
-                    }
+                        UnityEngine.Object.DestroyImmediate(sprite);
+
+                    Debug.Log($"✓ Loaded fill sprite from Resources: {resourcePath}");
+                }
+                else
+                {
+                    Debug.LogWarning($"Fill sprite not yet imported at: {resourcePath} — temp sprite kept.");
                 }
             }
         }
@@ -1095,11 +1120,71 @@ public class FigmaConverter : MonoBehaviour
         if (imageData == null || imageData.Count == 0)
             return;
 
-        // Store in local cache
+        // Save to Sprites/shared/ — shared across all nodes, keyed by imageRef
+        string resourcesSpritesPath = Path.Combine(
+            Application.dataPath,
+            Constant.RESOURCES_FOLDER,
+            Constant.SAVE_IMAGE_SHARED_FOLDER
+        );
+        EnsureDirectory(resourcesSpritesPath);
+
+        // Collect asset paths that need importing (only newly written files)
+        var assetPathsToImport = new List<string>();
+
         foreach (var kvp in imageData)
         {
-            _imageFillsCache[kvp.Key] = kvp.Value;
+            string imageRef   = kvp.Key;
+            string base64Data = kvp.Value;
+
+            // Store in memory cache
+            _imageFillsCache[imageRef] = base64Data;
+
+            // Persist to disk so next run's pre-check can skip the download
+            try
+            {
+                string refFileName = imageRef.SanitizeFileName();
+                string refHash     = SpriteSaver.GetShortHash(imageRef);
+                string filePath    = Path.Combine(resourcesSpritesPath, $"{refFileName}_{refHash}.png");
+
+                if (!File.Exists(filePath) && !string.IsNullOrEmpty(base64Data))
+                {
+                    byte[] rawBytes = System.Convert.FromBase64String(base64Data);
+                    File.WriteAllBytes(filePath, rawBytes);
+                    Debug.Log($"✓ Cached image fill to disk: {refFileName}_{refHash}.png");
+
+#if UNITY_EDITOR
+                    string assetPath = $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_SHARED_FOLDER}/{refFileName}_{refHash}.png";
+                    assetPathsToImport.Add(assetPath);
+#endif
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"StoreImageFillsInCache: Failed to persist {kvp.Key}: {ex.Message}");
+            }
         }
+
+#if UNITY_EDITOR
+        // Batch-configure all new sprites then do a single Refresh
+        foreach (string assetPath in assetPathsToImport)
+        {
+            UnityEditor.AssetDatabase.ImportAsset(assetPath, UnityEditor.ImportAssetOptions.ForceSynchronousImport);
+            var importer = UnityEditor.AssetImporter.GetAtPath(assetPath) as UnityEditor.TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType        = UnityEditor.TextureImporterType.Sprite;
+                importer.spriteImportMode   = UnityEditor.SpriteImportMode.Single;
+                importer.mipmapEnabled      = false;
+                importer.filterMode         = FilterMode.Bilinear;
+                importer.textureCompression = UnityEditor.TextureImporterCompression.Uncompressed;
+                importer.maxTextureSize     = 2048;
+                UnityEditor.EditorUtility.SetDirty(importer);
+                importer.SaveAndReimport();
+            }
+        }
+        if (assetPathsToImport.Count > 0)
+            UnityEditor.AssetDatabase.Refresh();
+#endif
     }
 
     /// <summary>

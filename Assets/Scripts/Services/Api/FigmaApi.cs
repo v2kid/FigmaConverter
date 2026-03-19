@@ -11,30 +11,41 @@ public class FigmaApi : IDisposable
 {
     private const string BaseUri = "https://api.figma.com/v1";
 
+    // Static singleton HttpClient — avoids socket exhaustion from repeated Dispose/recreate
+    private static HttpClient _sharedClient;
+    private static readonly object _clientLock = new object();
+
+    private static HttpClient GetOrCreateClient(string token)
+    {
+        lock (_clientLock)
+        {
+            if (_sharedClient != null)
+                return _sharedClient;
+
+            _sharedClient = new HttpClient();
+            _sharedClient.DefaultRequestHeaders.Add("X-FIGMA-TOKEN", token);
+            _sharedClient.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json")
+            );
+            _sharedClient.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue
+            {
+                NoCache = true,
+                NoStore = true,
+            };
+            return _sharedClient;
+        }
+    }
+
     private readonly HttpClient _httpClient;
 
     public FigmaApi(string personalAccessToken)
     {
-        _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.Add("X-FIGMA-TOKEN", personalAccessToken);
-
-        // Always accept json, so we can get detailed error message from backend.
-        _httpClient.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/json")
-        );
-
-        _httpClient.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue()
-        {
-            NoCache = true,
-            NoStore = true,
-        };
+        _httpClient = GetOrCreateClient(personalAccessToken);
     }
 
     /// <summary>
-    /// Downloads  all images present in image fills in a document. Image fills are how Figma represents any user
-    /// supplied images. When you drag an image into Figma, we create a rectangle with a single fill that
-    /// represents the image, and the user is able to transform the rectangle (and properties on the fill)
-    /// as they wish.
+    /// Downloads all images present in image fills in a document.
+    /// Uses parallel Task.WhenAll to download all images concurrently.
     /// </summary>
     /// <see href="https://www.figma.com/developers/api#get-image-fills-endpoint"/>
     public async Task<Dictionary<string, byte[]>> GetImageFillsAsync(
@@ -57,39 +68,41 @@ public class FigmaApi : IDisposable
         httpResponse.EnsureSuccessStatusCode();
 
         var json = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-        ;
         var response = JsonHelper.Deserialize<ImageFillsResponse>(json);
 
         if (response == null || response.metadata == null)
             return null;
 
-        // Download images data.
-        var images = new Dictionary<string, byte[]>();
+        // Filter to only the requested imageRefs that have valid URLs
+        var filteredImages = response.metadata.images
+            .Where(kvp => request.imageRefs == null || request.imageRefs.Contains(kvp.Key))
+            .Where(kvp => !string.IsNullOrEmpty(kvp.Value))
+            .ToList();
 
-        foreach (var (imageRef, imageUrl) in response.metadata.images)
+        // Download all images in parallel
+        var downloadTasks = filteredImages.Select(async kvp =>
         {
-            if (request.imageRefs != null && !request.imageRefs.Contains(imageRef))
-                continue;
+            var imageData = await GetBytesAsync(kvp.Value, "application/octet-stream", cancellationToken)
+                .ConfigureAwait(false);
+            if (imageData == null)
+                throw new Exception($"Image '{kvp.Key}' data could not be retrieved from: {kvp.Value}");
+            return (imageRef: kvp.Key, data: imageData);
+        });
 
-            if (!string.IsNullOrEmpty(imageUrl))
+        var results = await Task.WhenAll(downloadTasks).ConfigureAwait(false);
+
+        var images = new Dictionary<string, byte[]>();
+        foreach (var (imageRef, data) in results)
+            images[imageRef] = data;
+
+        // Add null entries for refs with empty URLs (Figma marks these as unrenderable)
+        foreach (var kvp in response.metadata.images)
+        {
+            if ((request.imageRefs == null || request.imageRefs.Contains(kvp.Key))
+                && string.IsNullOrEmpty(kvp.Value)
+                && !images.ContainsKey(kvp.Key))
             {
-                var imageData = await GetBytesAsync(
-                        imageUrl,
-                        "application/octet-stream",
-                        cancellationToken
-                    )
-                    .ConfigureAwait(false);
-
-                if (imageData == null)
-                    throw new Exception(
-                        $"Image '{imageRef}' data could not be get from: {imageUrl}"
-                    );
-
-                images.Add(imageRef, imageData);
-            }
-            else
-            {
-                images.Add(imageRef, null);
+                images[kvp.Key] = null;
             }
         }
 
@@ -98,14 +111,7 @@ public class FigmaApi : IDisposable
 
     /// <summary>
     /// Renders images from a file.
-    ///
-    /// If no error occurs, "images" will be populated with a map from node IDs to URLs of the rendered images,
-    /// and "status" will be omitted. The image assets will expire after 30 days.
-    ///
-    /// Important: the image map may contain values that are null. This indicates that rendering of that specific
-    /// node has failed. This may be due to the node id not existing, or other reasons such has the node having no
-    /// renderable components. It is guaranteed that any node that was requested for rendering will be represented
-    /// in this map whether or not the render succeeded.
+    /// Uses parallel Task.WhenAll to download all rendered images concurrently.
     /// </summary>
     public async Task<Dictionary<string, byte[]>> GetImageAsync(
         ImageRequest imageRequest,
@@ -119,9 +125,9 @@ public class FigmaApi : IDisposable
             throw new ArgumentException("File ID cannot be empty.");
 
         if (imageRequest.ids == null || imageRequest.ids.Length == 0)
-            throw new ArgumentException("Image ids array must has at least one item.");
+            throw new ArgumentException("Image ids array must have at least one item.");
 
-        // Get image download URLs.
+        // Get image download URLs
         var url = GetImageRequestUrl(imageRequest);
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
@@ -133,29 +139,30 @@ public class FigmaApi : IDisposable
         if (imageResponse == null)
             return null;
 
-        // Download images data.
-        var images = new Dictionary<string, byte[]>();
+        // Download all rendered images in parallel
+        var validImages = imageResponse.images
+            .Where(kvp => !string.IsNullOrEmpty(kvp.Value))
+            .ToList();
 
-        foreach (var (imageId, imageUrl) in imageResponse.images)
+        var downloadTasks = validImages.Select(async kvp =>
         {
-            if (!string.IsNullOrEmpty(imageUrl))
-            {
-                var imageData = await GetBytesAsync(
-                    imageUrl,
-                    "application/octet-stream",
-                    cancellationToken
-                );
-                if (imageData == null)
-                    throw new Exception(
-                        $"Image '{imageId}' data could not be get from: {imageUrl}"
-                    );
+            var imageData = await GetBytesAsync(kvp.Value, "application/octet-stream", cancellationToken);
+            if (imageData == null)
+                throw new Exception($"Image '{kvp.Key}' data could not be retrieved from: {kvp.Value}");
+            return (imageId: kvp.Key, data: imageData);
+        });
 
-                images.Add(imageId, imageData);
-            }
-            else
-            {
-                images.Add(imageId, null);
-            }
+        var results = await Task.WhenAll(downloadTasks).ConfigureAwait(false);
+
+        var images = new Dictionary<string, byte[]>();
+        foreach (var (imageId, data) in results)
+            images[imageId] = data;
+
+        // Add null entries for images that failed to render on Figma's side
+        foreach (var kvp in imageResponse.images)
+        {
+            if (string.IsNullOrEmpty(kvp.Value) && !images.ContainsKey(kvp.Key))
+                images[kvp.Key] = null;
         }
 
         return images;
@@ -181,19 +188,13 @@ public class FigmaApi : IDisposable
         url = $"{url}?ids={string.Join(",", request.ids)}";
 
         if (!string.IsNullOrEmpty(request.version))
-        {
             url = $"{url}&version={request.version}";
-        }
 
         if (!string.IsNullOrEmpty(request.format))
-        {
             url = $"{url}&format={request.format}";
-        }
 
         if (request.scale.HasValue)
-        {
             url = $"{url}&scale={request.scale.Value}";
-        }
 
         url = $"{url}&svg_include_id={request.svgIncludeId.ToString().ToLower()}";
         url = $"{url}&svg_simplify_stroke={request.svgSimplifyStroke.ToString().ToLower()}";
@@ -218,8 +219,9 @@ public class FigmaApi : IDisposable
         return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
     }
 
-    public void Dispose()
-    {
-        _httpClient?.Dispose();
-    }
+    /// <summary>
+    /// Note: HttpClient is a shared static singleton. Dispose is intentionally a no-op
+    /// to prevent closing the shared socket. The OS reclaims resources on process exit.
+    /// </summary>
+    public void Dispose() { }
 }

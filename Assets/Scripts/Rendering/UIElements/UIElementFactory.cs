@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -144,11 +145,27 @@ public class UIElementFactory
         tmpText.text = characters;
         tmpText.textWrappingMode = TextWrappingModes.NoWrap;
 
-        // Resolve font per node — use fontFamily from Figma data
+        // Resolve font chain: fontService → config.defaultFont → TMP global default
         string fontFamily = nodeData["style"]?["fontFamily"]?.ToString();
         TMP_FontAsset resolvedFont = _fontService?.GetFontAsset(fontFamily) ?? _config.defaultFont;
-        if (resolvedFont != null)
+
+        // Validate: font must have a material to be usable (broken assets crash TMP inspector)
+        if (resolvedFont != null && resolvedFont.material != null)
+        {
             tmpText.font = resolvedFont;
+        }
+        else
+        {
+            // Broken or missing font — fall back to TMP project default so TMP doesn't complain
+            TMP_FontAsset tmpDefault = TMP_Settings.defaultFontAsset;
+            if (tmpDefault != null)
+                tmpText.font = tmpDefault;
+
+            if (resolvedFont != null)
+                Debug.LogWarning($"UIElementFactory: Font '{resolvedFont.name}' is broken (null material) — using TMP default for '{nodeName}'");
+            else
+                Debug.LogWarning($"UIElementFactory: No font resolved for family '{fontFamily}' — using TMP default for '{nodeName}'");
+        }
 
         ApplyTextStyling(nodeData, tmpText);
         ApplyTextColor(nodeData, tmpText);
@@ -227,7 +244,8 @@ public class UIElementFactory
         Image iconImage = gameObject.AddComponent<Image>();
         ApplyImageScaleMode(nodeData, iconImage);
 
-        string nodeName = nodeData["name"]?.ToString() ?? "Icon";
+        string nodeName    = nodeData["name"]?.ToString() ?? "Icon";
+        string nodeId      = nodeData["id"]?.ToString() ?? "";
         string sanitizedName = nodeName.SanitizeFileName();
 
         // Check cache first
@@ -239,9 +257,9 @@ public class UIElementFactory
             return;
         }
 
-        // Load from Resources
-        string nodeIdForPath = _config.targetNodeId.Replace(":", "-");
-        Sprite iconSprite = Resources.Load<Sprite>($"Sprites/{nodeIdForPath}/{sanitizedName}");
+        // Load from Resources/Sprites/icons/ — filename uses hash(nodeId) for uniqueness
+        string nodeHash   = SpriteSaver.GetShortHash(nodeId);
+        Sprite iconSprite = Resources.Load<Sprite>($"{Constant.SAVE_IMAGE_ICONS_FOLDER}/{sanitizedName}_{nodeHash}");
 
         if (iconSprite != null)
         {
@@ -263,10 +281,10 @@ public class UIElementFactory
         float height
     )
     {
-        string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
-        string nodeId = nodeData["id"]?.ToString() ?? "";
+        string nodeName      = nodeData["name"]?.ToString() ?? "Unknown";
+        string nodeId        = nodeData["id"]?.ToString() ?? "";
         string sanitizedName = nodeName.SanitizeFileName();
-        string cacheKey = $"{sanitizedName}_{nodeId}";
+        string cacheKey      = $"{sanitizedName}_{nodeId}";
 
         // Check cache first
         Sprite cachedSprite = _spriteCache.Get(cacheKey);
@@ -278,10 +296,13 @@ public class UIElementFactory
             return;
         }
 
-        // Try to load from saved Resources
-        string nodeIdForPath = _config.targetNodeId.Replace(":", "-");
-        string resourcePath = $"Sprites/{nodeIdForPath}/{sanitizedName}";
-        Sprite savedSprite = Resources.Load<Sprite>(resourcePath);
+        // Sprites saved by SpriteSaver (image fills) use content-hash suffix in Sprites/shared/
+        string folderPath = Path.Combine(
+            Application.dataPath,
+            Constant.RESOURCES_FOLDER,
+            Constant.SAVE_IMAGE_SHARED_FOLDER
+        );
+        Sprite savedSprite = FindHashedSprite(folderPath, sanitizedName);
 
         if (savedSprite != null)
         {
@@ -305,7 +326,6 @@ public class UIElementFactory
         float height
     )
     {
-        string nodeName = nodeData["name"]?.ToString() ?? "Unknown";
         string sanitizedName = gameObject.name.SanitizeFileName();
 
         // Check cache
@@ -317,9 +337,13 @@ public class UIElementFactory
             return;
         }
 
-        // Try loading from Resources
-        string nodeIdForPath = _config.targetNodeId.Replace(":", "-");
-        Sprite loadedSprite = Resources.Load<Sprite>($"Sprites/{nodeIdForPath}/{sanitizedName}");
+        // Glob-scan Sprites/shared/ for {sanitizedName}_*.png (content-hash suffix)
+        string folderPath = Path.Combine(
+            Application.dataPath,
+            Constant.RESOURCES_FOLDER,
+            Constant.SAVE_IMAGE_SHARED_FOLDER
+        );
+        Sprite loadedSprite = FindHashedSprite(folderPath, sanitizedName);
 
         if (loadedSprite != null)
         {
@@ -332,6 +356,26 @@ public class UIElementFactory
             // Fallback to styled sprite
             ApplyStyledSprite(gameObject, nodeData, image, width, height);
         }
+    }
+
+    /// <summary>
+    /// Scans a sprite folder for a file matching {baseName}_*.png saved by SpriteSaver
+    /// (content-hash suffix). Returns the first match loaded via Resources.Load.
+    /// </summary>
+    private Sprite FindHashedSprite(string folderPath, string baseName)
+    {
+        if (!Directory.Exists(folderPath))
+            return null;
+
+        // SpriteSaver always saves .png
+        string[] matches = Directory.GetFiles(folderPath, $"{baseName}_*.png");
+        if (matches.Length == 0)
+            return null;
+
+        // Pick first match (same content = same hash = at most 1 file per name)
+        string fileName     = Path.GetFileNameWithoutExtension(matches[0]);
+        string resourcePath = $"{Constant.SAVE_IMAGE_SHARED_FOLDER}/{fileName}";
+        return Resources.Load<Sprite>(resourcePath);
     }
 
     private void ApplySimpleFill(JObject nodeData, Image image)

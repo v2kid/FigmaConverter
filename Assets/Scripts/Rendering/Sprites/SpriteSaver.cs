@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -36,23 +38,25 @@ public static class SpriteSaver
             if (string.IsNullOrEmpty(folderPath))
                 return null;
 
-            // Create file path — no GUID suffix, use name directly for deduplication
-            string fileName = $"{sanitizedSpriteName}.png";
-            string filePath = Path.Combine(folderPath, fileName);
-
-            // Skip if file already exists (same name = same image)
-            if (File.Exists(filePath))
-            {
-                Debug.Log($"⏭ SpriteSaver: Sprite already exists, skipping: {fileName}");
-                return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
-            }
-
-            // Crop texture to sprite bounds to remove padding
+            // Crop texture first so we can hash its content
             Texture2D croppedTexture = CropTextureToSpriteBounds(sprite);
             if (croppedTexture == null)
             {
                 Debug.LogWarning($"SpriteSaver: Failed to crop sprite {spriteName}");
                 return null;
+            }
+
+            // Build unique filename: name + 6-char content hash
+            string contentHash = GetShortHash(croppedTexture.GetRawTextureData());
+            string fileName = $"{sanitizedSpriteName}_{contentHash}.png";
+            string filePath = Path.Combine(folderPath, fileName);
+
+            // Skip if an identical file already exists
+            if (File.Exists(filePath))
+            {
+                Debug.Log($"⏭ SpriteSaver: Sprite already exists, skipping: {fileName}");
+                UnityEngine.Object.DestroyImmediate(croppedTexture);
+                return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}_{contentHash}";
             }
 
             // Encode cropped texture to PNG
@@ -91,9 +95,8 @@ public static class SpriteSaver
                 // Clean up cropped texture
                 UnityEngine.Object.DestroyImmediate(croppedTexture);
 
-                // Return resource path - use the full file name *without* the extension
-                // Unity's Resources.Load expects the path relative to a Resources folder, without extension.
-                return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}";
+                // Return resource path without extension (Unity's Resources.Load format)
+                return $"{Constant.SAVE_IMAGE_FOLDER}/{sanitizedMainNodeId}/{sanitizedSpriteName}_{contentHash}";
             }
             else
             {
@@ -109,7 +112,12 @@ public static class SpriteSaver
         }
     }
 
-    public static bool SaveImageToResources(Texture2D texture, string imageName, string mainNodeId)
+    public static bool SaveImageToResources(
+        Texture2D texture,
+        string imageName,
+        string mainNodeId,
+        string imageUrl = null
+    )
     {
         if (texture == null)
         {
@@ -134,9 +142,18 @@ public static class SpriteSaver
             if (string.IsNullOrEmpty(folderPath))
                 return false;
 
-            // Create file path
-            string fileName = $"{sanitizedImageName}.png";
+            // Build unique filename: name + 6-char hash (URL if available, else raw pixels)
+            string hashSource = !string.IsNullOrEmpty(imageUrl) ? imageUrl : sanitizedImageName;
+            string contentHash = GetShortHash(Encoding.UTF8.GetBytes(hashSource));
+            string fileName = $"{sanitizedImageName}_{contentHash}.png";
             string filePath = Path.Combine(folderPath, fileName);
+
+            // Skip if identical file already saved
+            if (File.Exists(filePath))
+            {
+                Debug.Log($"⏭ SpriteSaver: Image already exists, skipping: {fileName}");
+                return true;
+            }
 
             // Encode texture to PNG
             byte[] pngData = texture.EncodeToPNG();
@@ -332,6 +349,25 @@ public static class SpriteSaver
     }
 
 
+
+    /// <summary>
+    /// Returns a 6-character uppercase hex hash of the given bytes (MD5-based).
+    /// Used to generate unique filename suffixes so same-named assets never collide.
+    /// Public so download pipelines can compute the same suffix.
+    /// </summary>
+    public static string GetShortHash(byte[] data)
+    {
+        using (MD5 md5 = MD5.Create())
+        {
+            byte[] hash = md5.ComputeHash(data);
+            // Take first 3 bytes → 6 hex chars (16M combinations)
+            return $"{hash[0]:X2}{hash[1]:X2}{hash[2]:X2}";
+        }
+    }
+
+    /// <summary>Convenience overload — hashes a string via UTF-8 encoding.</summary>
+    public static string GetShortHash(string input) =>
+        GetShortHash(Encoding.UTF8.GetBytes(input ?? string.Empty));
 
     /// <summary>
     /// Checks if a sprite exists in Resources

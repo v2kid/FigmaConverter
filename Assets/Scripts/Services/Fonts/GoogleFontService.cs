@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.TextCore; // GlyphRenderMode
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -356,19 +357,14 @@ public class GoogleFontService
 
 #if UNITY_EDITOR
     /// <summary>
-    /// Creates a TMP_FontAsset from a Font and saves it
+    /// Creates a TMP_FontAsset from a Font and saves it as a proper asset with sub-assets.
+    /// Uses explicit atlas parameters to create a static font (not lazy-dynamic),
+    /// ensuring m_AtlasTextures is initialized before the asset is serialized to disk.
     /// </summary>
     private TMP_FontAsset CreateTMPFontAsset(Font font, string fontFamily)
     {
         try
         {
-            TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(font);
-            if (fontAsset == null)
-            {
-                Debug.LogError($"Failed to create TMP_FontAsset for '{fontFamily}'");
-                return null;
-            }
-
             string sanitizedFamily = fontFamily.Replace(" ", "_");
             string fontDir = Path.Combine(_config.fontsPath, sanitizedFamily);
 
@@ -377,21 +373,58 @@ public class GoogleFontService
 
             string assetPath = Path.Combine(fontDir, $"{sanitizedFamily} SDF.asset");
 
-            // Check if already exists
+            // Return existing asset if properly created (has texture + material)
             TMP_FontAsset existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
-            if (existing != null)
+            if (existing != null && existing.material != null
+                && existing.atlasTextures != null && existing.atlasTextures.Length > 0
+                && existing.atlasTextures[0] != null)
+            {
                 return existing;
+            }
 
+            // Use simple overload — avoids GlyphRenderMode namespace issues across TMP versions
+            TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(font);
+
+            if (fontAsset == null)
+            {
+                Debug.LogError($"Failed to create TMP_FontAsset for '{fontFamily}'");
+                return null;
+            }
+
+            // Dynamic fonts have a lazy atlas — atlasTextures[0] may be null until first render.
+            // Manually initialize it now so m_AtlasTextures is not null after deserializing from disk.
+            if (fontAsset.atlasTextures == null || fontAsset.atlasTextures.Length == 0
+                || fontAsset.atlasTextures[0] == null)
+            {
+                Texture2D atlasTexture = new Texture2D(512, 512, TextureFormat.Alpha8, false);
+                atlasTexture.name = $"{sanitizedFamily} Atlas";
+                fontAsset.atlasTextures = new Texture2D[] { atlasTexture };
+            }
+
+            // Save main font asset
             AssetDatabase.CreateAsset(fontAsset, assetPath);
+
+            // Save atlas textures as sub-assets — must happen before SaveAssets
+            foreach (var tex in fontAsset.atlasTextures)
+            {
+                if (tex != null && !AssetDatabase.Contains(tex))
+                    AssetDatabase.AddObjectToAsset(tex, fontAsset);
+            }
+
+            // Save material as sub-asset — required so TMP inspector dropdown doesn't crash
+            if (fontAsset.material != null && !AssetDatabase.Contains(fontAsset.material))
+                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            TMP_FontAsset saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
             Debug.Log($"✓ Created TMP_FontAsset: {assetPath}");
-            return AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
+            return saved;
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Error creating TMP_FontAsset for '{fontFamily}': {ex.Message}");
+            Debug.LogError($"Error creating TMP_FontAsset for '{fontFamily}': {ex.Message}\n{ex.StackTrace}");
             return null;
         }
     }
