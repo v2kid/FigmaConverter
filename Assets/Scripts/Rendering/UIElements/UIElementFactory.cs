@@ -467,7 +467,7 @@ public class UIElementFactory
         }
         else
         {
-            tmpText.color = _config.defaultTextColor;
+            tmpText.color = Color.black;
         }
     }
 }

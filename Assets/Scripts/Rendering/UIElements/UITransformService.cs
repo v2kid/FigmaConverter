@@ -89,13 +89,14 @@ public class UITransformService
     {
         if (rectTransform.parent == targetCanvas.transform)
         {
-            // Root level - position relative to canvas center
+            // Root level - position relative to canvas center (pivot = 0.5,0.5)
             RectTransform canvasRect = targetCanvas.GetComponent<RectTransform>();
             float canvasWidth = canvasRect.rect.width;
             float canvasHeight = canvasRect.rect.height;
 
-            float unityX = x - (canvasWidth * 0.5f);
-            float unityY = (canvasHeight * 0.5f) - y;
+            // Figma top-left → Unity center-pivot: offset by half element size
+            float unityX = x - (canvasWidth * 0.5f) + (width * 0.5f);
+            float unityY = (canvasHeight * 0.5f) - y - (height * 0.5f);
 
             return new Vector2(unityX, unityY);
         }
@@ -112,12 +113,13 @@ public class UITransformService
                 relativeX *= _config.scaleFactor;
                 relativeY *= _config.scaleFactor;
 
-                return new Vector2(relativeX, -relativeY);
+                // Pivot = (0.5, 0.5): offset anchoredPosition by half element size
+                return new Vector2(relativeX + width * 0.5f, -relativeY - height * 0.5f);
             }
             else
             {
-                // Fallback to absolute positioning
-                return new Vector2(x, -y);
+                // Fallback to absolute positioning with center pivot offset
+                return new Vector2(x + width * 0.5f, -y - height * 0.5f);
             }
         }
     }
@@ -126,17 +128,17 @@ public class UITransformService
     {
         if (rectTransform.parent == targetCanvas.transform)
         {
-            // Root level - centered anchors
+            // Root level - centered anchors, center pivot
             rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
         }
         else
         {
-            // Child element - top-left anchors
+            // Child element - top-left anchors, center pivot
             rectTransform.anchorMin = new Vector2(0f, 1f);
             rectTransform.anchorMax = new Vector2(0f, 1f);
-            rectTransform.pivot = new Vector2(0f, 1f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
         }
     }
 }

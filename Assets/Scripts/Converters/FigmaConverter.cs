@@ -117,7 +117,6 @@ public class FigmaConverter : MonoBehaviour
     // Services (created on demand)
     private SpriteCacheService _spriteCache;
     private NodeDataCacheService _nodeCache;
-    private ObjectPoolService _objectPool;
     private UIElementFactory _uiFactory;
     private UITransformService _transformService;
     private GoogleFontService _fontService;
@@ -164,14 +163,8 @@ public class FigmaConverter : MonoBehaviour
         try
         {
             // Initialize caching services
-            _spriteCache = new SpriteCacheService(config.spriteCacheSize);
-            _nodeCache = new NodeDataCacheService(config.nodeCacheSize);
-
-            // Initialize object pooling
-            if (config.enableObjectPooling)
-            {
-                _objectPool = new ObjectPoolService();
-            }
+            _spriteCache = new SpriteCacheService();
+            _nodeCache = new NodeDataCacheService();
 
             // Initialize font service
             _fontService = new GoogleFontService(config);
@@ -198,7 +191,6 @@ public class FigmaConverter : MonoBehaviour
     {
         _spriteCache?.Clear();
         _nodeCache?.Clear();
-        _objectPool?.ClearAll(false);
         _transformService?.ClearCache();
         _shapeBaker?.Dispose();
         _imageFillsCache?.Clear();
@@ -552,7 +544,7 @@ public class FigmaConverter : MonoBehaviour
             string nodeName  = _nodeCache.GetNodeName(nodeId) ?? nodeId;
             string fileName  = nodeName.SanitizeFileName();
             string nodeHash  = SpriteSaver.GetShortHash(nodeId);
-            string filePath  = Path.Combine(resourcesSpritesPath, $"{fileName}_{nodeHash}.{config.imageFormat}");
+            string filePath  = Path.Combine(resourcesSpritesPath, $"{fileName}_{nodeHash}.png");
 
             if (File.Exists(filePath))
             {
@@ -582,8 +574,8 @@ public class FigmaConverter : MonoBehaviour
         var imageRequest = new ImageRequest(config.fileId)
         {
             ids = idsToDownload.ToArray(),
-            format = config.imageFormat,
-            scale = config.imageScale,
+            format = "png",
+            scale = 1f,
             useAbsoluteBounds = true,
         };
 
@@ -630,7 +622,7 @@ public class FigmaConverter : MonoBehaviour
             string nodeName = _nodeCache.GetNodeName(imageNodeId) ?? imageNodeId;
             string fileName = nodeName.SanitizeFileName();
             string nodeHash = SpriteSaver.GetShortHash(imageNodeId);
-            string filePath = Path.Combine(resourcesSpritesPath, $"{fileName}_{nodeHash}.{config.imageFormat}");
+            string filePath = Path.Combine(resourcesSpritesPath, $"{fileName}_{nodeHash}.png");
 
             if (savedFilePaths.Contains(filePath))
                 continue; // exact duplicate node (shouldn't happen)
@@ -638,9 +630,9 @@ public class FigmaConverter : MonoBehaviour
             File.WriteAllBytes(filePath, imageData);
             savedFilePaths.Add(filePath);
 
-            string assetPath = $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_ICONS_FOLDER}/{fileName}_{nodeHash}.{config.imageFormat}";
+            string assetPath = $"Assets/{Constant.RESOURCES_FOLDER}/{Constant.SAVE_IMAGE_ICONS_FOLDER}/{fileName}_{nodeHash}.png";
             assetPathsToImport.Add(assetPath);
-            Debug.Log($"✓ Saved icon: {fileName}_{nodeHash}.{config.imageFormat}");
+            Debug.Log($"✓ Saved icon: {fileName}_{nodeHash}.png");
         }
 
 #if UNITY_EDITOR
@@ -742,19 +734,8 @@ public class FigmaConverter : MonoBehaviour
 
     private IEnumerator ConvertNodeCoroutine()
     {
-        // Ensure we have a target canvas
-        if (config.targetCanvas == null)
-        {
-            if (config.createNewCanvas)
-            {
-                CreateCanvas();
-            }
-            else
-            {
-                Debug.LogError("No target canvas found and createNewCanvas is disabled.");
-                yield break;
-            }
-        }
+        // Always create a fresh canvas named after the node ID
+        CreateCanvas();
 
         try
         {
@@ -764,6 +745,8 @@ public class FigmaConverter : MonoBehaviour
         {
             Debug.LogError($"Error during conversion: {ex.Message}");
         }
+
+        yield break;
     }
 
     private GameObject ProcessFigmaNode(JObject nodeData, Transform parent)
@@ -1033,7 +1016,8 @@ public class FigmaConverter : MonoBehaviour
 
     private void CreateCanvas()
     {
-        GameObject canvasGO = new GameObject(config.canvasName);
+        string canvasName = string.IsNullOrEmpty(config.nodeId) ? "FigmaUI_Canvas" : $"FigmaUI_{config.nodeId.Replace(":", "_")}";
+        GameObject canvasGO = new GameObject(canvasName);
         config.targetCanvas = canvasGO.AddComponent<Canvas>();
         config.targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
 

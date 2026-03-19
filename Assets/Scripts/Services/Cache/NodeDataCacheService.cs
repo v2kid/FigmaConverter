@@ -2,22 +2,20 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
 /// <summary>
-/// Caches Figma node data to avoid redundant parsing and lookups
+/// Caches Figma node data to avoid redundant parsing and lookups.
+/// No eviction: the cache is cleared explicitly after conversion finishes.
 /// </summary>
 public class NodeDataCacheService
 {
     private readonly Dictionary<string, JObject> _nodeCache;
     private readonly Dictionary<string, string> _nodeNameCache;
-    private readonly int _maxEntries;
 
-    public int MaxEntries => _maxEntries;
     public int CachedNodeCount => _nodeCache.Count;
 
-    public NodeDataCacheService(int maxEntries = 1000)
+    public NodeDataCacheService()
     {
-        _maxEntries = maxEntries;
-        _nodeCache = new Dictionary<string, JObject>(maxEntries);
-        _nodeNameCache = new Dictionary<string, string>(maxEntries);
+        _nodeCache = new Dictionary<string, JObject>();
+        _nodeNameCache = new Dictionary<string, string>();
     }
 
     /// <summary>
@@ -28,19 +26,11 @@ public class NodeDataCacheService
         if (string.IsNullOrEmpty(nodeId) || nodeData == null)
             return;
 
-        // Simple eviction: clear half the cache when full
-        if (_nodeCache.Count >= _maxEntries)
-        {
-            EvictHalf();
-        }
-
         _nodeCache[nodeId] = nodeData;
 
         string nodeName = nodeData["name"]?.ToString();
         if (!string.IsNullOrEmpty(nodeName))
-        {
             _nodeNameCache[nodeId] = nodeName;
-        }
     }
 
     /// <summary>
@@ -87,28 +77,18 @@ public class NodeDataCacheService
             string nodeId = obj["id"]?.ToString();
 
             if (!string.IsNullOrEmpty(nodeId))
-            {
                 AddNode(nodeId, obj);
-            }
 
-            // Recursively index children
-            if (
-                obj.TryGetValue("children", out JToken childrenToken)
-                && childrenToken is JArray children
-            )
+            if (obj.TryGetValue("children", out JToken childrenToken) && childrenToken is JArray children)
             {
                 foreach (var child in children)
-                {
                     IndexNodeTree(child);
-                }
             }
         }
         else if (root.Type == JTokenType.Array)
         {
             foreach (var item in (JArray)root)
-            {
                 IndexNodeTree(item);
-            }
         }
     }
 
@@ -119,26 +99,5 @@ public class NodeDataCacheService
     {
         _nodeCache.Clear();
         _nodeNameCache.Clear();
-    }
-
-    private void EvictHalf()
-    {
-        int toRemove = _maxEntries / 2;
-        int removed = 0;
-
-        var keysToRemove = new List<string>(toRemove);
-
-        foreach (var key in _nodeCache.Keys)
-        {
-            keysToRemove.Add(key);
-            if (++removed >= toRemove)
-                break;
-        }
-
-        foreach (var key in keysToRemove)
-        {
-            _nodeCache.Remove(key);
-            _nodeNameCache.Remove(key);
-        }
     }
 }
